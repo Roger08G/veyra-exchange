@@ -2,7 +2,7 @@
     <img src="./images/logo.png" alt="Logo de Veyra" width="190">
 </p>
 
-<h1 align="center">Veyra</h1>
+<h1 align="center">🪙 Veyra Exchange</h1>
 
 <p align="center">
     💰 Veyra es una plataforma financiera que integra cuentas, pagos y préstamos con garantía 💰
