@@ -5,7 +5,7 @@
 <h1 align="center">Veyra</h1>
 
 <p align="center">
-    Veyra es una plataforma financiera que integra cuentas, pagos y préstamos con garantía
+    💰 Veyra es una plataforma financiera que integra cuentas, pagos y préstamos con garantía 💰
 </p>
 
 Veyra es una plataforma financiera basada en contratos inteligentes EVM que integra cuentas, pagos y préstamos con garantía. Gestiona los fondos, las deudas, las comisiones y las pérdidas mediante reglas económicas explícitas.
