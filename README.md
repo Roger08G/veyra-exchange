@@ -24,7 +24,7 @@ Veyra es una plataforma financiera basada en contratos inteligentes EVM que inte
 - **Liquidaciones y pérdidas:** liquidación de posiciones que incumplan el umbral de garantía. La deuda incobrable reducirá el patrimonio del fondo y el valor de sus participaciones.
 - **Ingresos del protocolo:** contabilización y retirada de comisiones y cuotas ya cobradas, separadas de los saldos de las cuentas y del patrimonio del fondo.
 
-## Criterio de Finalización
+## Economía
 
 Completar en Anvil pagos, aportaciones y retiradas de liquidez, un préstamo devuelto y otro liquidado, incluido un caso con pérdidas. Comprobar que los movimientos de fondos, los saldos, las deudas y el valor de las participaciones concuerdan con las reglas definidas en el archivo `economic.md`.
 
