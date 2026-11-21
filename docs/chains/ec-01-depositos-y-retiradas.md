@@ -1,10 +1,10 @@
 # `EC-01` Depósitos y Retiradas
 
-Cadena economica `EC-01` gestiona la entrada de tokens, saldo disponible y retirada de fondos.
+La cadena económica `EC-01` gestiona la entrada de tokens, el saldo disponible y la retirada de fondos.
 
 ## Objetivo
 
-El objetivo de esta cadena es aceptar depósitos de los tokens permitidos, actualizar el saldo de cada cuenta y procesar retiradas solo cuando haya liquidez suficiente, garrantizando que lo comprometido en préstamos o comisiones no se pueda retirar.
+El objetivo de esta cadena es aceptar depósitos de los tokens permitidos, actualizar el saldo de cada cuenta y procesar retiradas solo cuando haya liquidez suficiente, garantizando que lo comprometido en préstamos o comisiones no se pueda retirar.
 
 > Tokens permitidos: [tokens](../tokens.md)
 
@@ -12,15 +12,13 @@ El objetivo de esta cadena es aceptar depósitos de los tokens permitidos, actua
 
 En esta cadena intervienen tres actores:
 
-- El usuario deposita **MockUSD** o **MockETH**, consulta su saldo y solicita retiradas.
-- El contrato de cuentas de Veyra valida los tokens adminitos, actualiza los saldos y ejecuta las retiradas cuando corresponde.
-- El administrador configura la lista blanca de tokens, pero no puede mover fondos de los usuarios.
+- El usuario deposita **MockUSD** o **MockETH**, consulta su saldo y solicita retiradas de sus propios fondos disponibles.
+- El contrato de cuentas de Veyra valida los tokens admitidos, actualiza los saldos y ejecuta las retiradas cuando corresponde.
+- El administrador configura la lista blanca de tokens, pero no puede mover fondos de los usuarios ni modificar sus saldos arbitrariamente. En `v0.1.0` no puede desautorizar un token mientras existan saldos disponibles, fondos bloqueados, ingresos del protocolo u otras reservas contabilizadas pendientes para ese token.
 
 ## Variables y Estado Contable
 
-Para cada usuario y cada token admitido, Veyra mantiene un saldo disponible que el usuario puede usar o retirar. Estados asociados pero no modificados por `EC-01`.
-
-Saldos bloqueados por garantías u otras obligaciones, participaciones del fondo de liquidez y deudas de los prestatarios.
+Para cada usuario y cada token admitido, Veyra mantiene un saldo disponible que el usuario puede usar o retirar. Los saldos bloqueados por garantías u otras obligaciones, las participaciones del fondo de liquidez y las deudas de los prestatarios son estados asociados que `EC-01` no modifica.
 
 **Reglas contables:** Los depósitos aumentan el saldo disponible del token correspondiente.
 
@@ -36,7 +34,7 @@ Las comisiones generadas por retiradas se separan del saldo disponible del usuar
 
 El usuario ordena depositar una cantidad de un token admitido, Veyra recibe los tokens en el contrato de cuentas, aumenta el saldo disponible de ese usuario para ese token y no toca saldos bloqueados, ni deudas, ni participaciones del fondo.
 
-Los depositos no generan comisiones ni crean deuda.
+Los depósitos no generan comisiones ni crean deuda.
 
 ### Flujos de Retirada
 
@@ -55,7 +53,7 @@ Las retiradas no afectan a deudas ni participaciones del fondo.
 - El token debe estar autorizado en la lista blanca.
 - La cantidad depositada debe ser mayor que el mínimo permitido.
 - El depósito solo se acredita si los tokens han sido efectivamente recibidos por el contrato.
-- Veyra debe verificar que los tokens se hayan recivido correctamente antes de acreditar el saldo.
+- Veyra debe verificar que los tokens se hayan recibido correctamente antes de acreditar el saldo.
 
 ### Validaciones de Retiradas
 
@@ -64,7 +62,7 @@ Las retiradas no afectan a deudas ni participaciones del fondo.
 - El saldo disponible debe cubrir el importe total solicitado.
 - Los fondos comprometidos en garantías u otras obligaciones no pueden retirarse.
 - La comisión debe calcularse según el plan vigente y no puede superar el importe solicitado.
-- Si falla alguna validación o transferencia, toda la operación debe revertorse.
+- Si falla alguna validación o transferencia, toda la operación debe revertirse.
 
 ## Invariantes y Propiedades
 
@@ -135,9 +133,9 @@ $$
 
 ### Invariante `INV-04` - Conservación de Retiradas
 
-En `EC-01`, toda retirada realizada correctamente debe reducir el saldo disponible del usuario en la suma de la cantidad neta transferida y la comision cobrada. La comisión debe registrarse como ingreso del protocolo.
+En `EC-01`, toda retirada realizada correctamente debe reducir el saldo disponible del usuario en la suma de la cantidad neta transferida y la comisión cobrada. La comisión debe registrarse como ingreso del protocolo.
 
-Para cada retirada válida de un token admitido, la disminución del *saldo disponible del usuario debe ser igual a la cantidad neta transferida suma de la comisión registrada como ingreso* del protocolo.
+Para cada retirada válida de un token admitido, la disminución del *saldo disponible del usuario debe ser igual a la cantidad neta transferida más la comisión registrada como ingreso* del protocolo.
 
 $$
 \forall r \in R:\quad
@@ -173,10 +171,7 @@ Para cada depósito o retirada válida, el saldo disponible de cualquier combina
 $$
 \forall o \in O_{\text{EC01}},\quad
 \forall v \in U,\quad
-\forall s \in T:
-$$
-
-$$
+\forall s \in T:\quad
 (v,s) \neq (u_o,t_o)
 \implies
 \Delta B_{\text{disponible}}(v,s,o) = 0
@@ -203,10 +198,7 @@ Para cada depósito o retirada válida, los saldos bloqueados permanecen inalter
 $$
 \forall o \in O_{\text{EC01}},\quad
 \forall u \in U,\quad
-\forall t \in T:
-$$
-
-$$
+\forall t \in T:\quad
 \Delta B_{\text{bloqueado}}(u,t,o) = 0
 $$
 
@@ -235,21 +227,15 @@ $$
 
 ### Invariante `INV-07` - Integridad de Depósitos
 
-En `EC-01`, los tokens enviados directamente por el contrato fuera del procedimiento de depósito no generan saldos disponibles para ningún usuario. Toda acreditación de saldo disponible debe venir de un depósito válido y registrado.
+En `EC-01`, los tokens enviados directamente al contrato fuera del procedimiento de depósito no generan saldos disponibles para ningún usuario. Toda acreditación de saldo disponible debe venir de un depósito válido y registrado.
 
 Para cada transferencia de tokens recibida fuera del procedimiento de depósito, los saldos disponibles de todos los usuarios para ese token permanecen inalterados.
 
 $$
 \forall e \in E_{\text{externas}},\quad
 \forall u \in U,\quad
-\forall t \in T:
-$$
-
-$$
-\Delta B_{\text{disponible}}(u,t,e) = 0
-$$
-
-$$
+\forall t \in T:\quad
+\Delta B_{\text{disponible}}(u,t,e) = 0,\qquad
 \Delta B_{\text{totalDisponible}}(t,e) = 0
 $$
 
