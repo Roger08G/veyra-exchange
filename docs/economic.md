@@ -17,7 +17,7 @@ Veyra tiene 8 cadenas economicas.
 
 ## `EC-04` Aportación y Retirada de Liquidez
 
-Capital para préstamos, participaciones, rendimieento y rembolso
+[**doc:**](./chains/ec-04-aportacion-y-retirada.md) Capital para préstamos, participaciones, rendimieento y rembolso
 
 ## `EC-05` Préstamos y Garantías 
 
