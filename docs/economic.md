@@ -33,4 +33,4 @@ Veyra tiene 8 cadenas economicas.
 
 ## `EC-08` Ingresos del Protocolo
 
-Contabilización y retirada de comisiones propias ya cobradas.
+[**doc:**](./chains/ec-08-ingresos-del-protocolo.md) Contabilización y retirada de comisiones propias ya cobradas.
