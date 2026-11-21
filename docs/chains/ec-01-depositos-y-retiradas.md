@@ -93,12 +93,12 @@ En `EC-01`, para cada token admitido, el saldo disponible total registrado por V
 
 Para cada token admitido, el *saldo disponible total es igual a la suma de los saldos disponibles individuales* de todos los usuarios.
 
-$$
+```math
 \forall t \in T:\quad
 B_{\text{totalDisponible}}(t)
 =
 \sum_{u \in U} B_{\text{disponible}}(u,t)
-$$
+```
 
 **Leyenda:**
 
@@ -113,14 +113,14 @@ En `EC-01`, todo depósito realizado correctamente debe incrementar el saldo dis
 
 Para cada depósito válido de un token admitido, el incremento del saldo disponible del usuario debe ser igual al incremento de tokens custodiados por el contrato durante dicha operación.
 
-$$
+```math
 \forall d \in D:\quad
 \Delta B_{\text{disponible}}(u,t,d)
 =
 \Delta B_{\text{contrato}}(t,d)
 =
 A_{\text{depositada}}(d)
-$$
+```
 
 **Leyenda:**
 
@@ -137,20 +137,20 @@ En `EC-01`, toda retirada realizada correctamente debe reducir el saldo disponib
 
 Para cada retirada válida de un token admitido, la disminución del *saldo disponible del usuario debe ser igual a la cantidad neta transferida más la comisión registrada como ingreso* del protocolo.
 
-$$
+```math
 \forall r \in R:\quad
 -\Delta B_{\text{disponible}}(u,t,r)
 =
 A_{\text{neta}}(r)
 +
 C_{\text{protocolo}}(r)
-$$
+```
 
-$$
+```math
 \Delta I_{\text{protocolo}}(t,r)
 =
 C_{\text{protocolo}}(r)
-$$
+```
 
 **Leyenda:**
 
