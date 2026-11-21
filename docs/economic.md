@@ -25,7 +25,7 @@ Veyra tiene 8 cadenas economicas.
 
 ## `EC-06` Intereses y Devolución
 
-Evolución de la deuda y devoluciones parciales o completas.
+[**doc:**](./chains/ec-06-intereses-y-devolución.md) Evolución de la deuda y devoluciones parciales o completas.
 
 ## `EC-07` Liquidaciones y Pérdidas
 
