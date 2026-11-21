@@ -21,7 +21,7 @@ Veyra tiene 8 cadenas economicas.
 
 ## `EC-05` Préstamos y Garantías 
 
-Apertura, desembolso, limites y bloqueo o liberación de garrantías.
+[**doc:**](./chains/ec-05-prestamos-y-garantias.md) Apertura, desembolso, limites y bloqueo o liberación de garrantías.
 
 ## `EC-06` Intereses y Devolución
 
