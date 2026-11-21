@@ -11,9 +11,9 @@ Veyra tiene 8 cadenas economicas.
 
 [**doc:**](./chains/ec-02-pagos-y-transferencias.md) Pagos individuales o por lotees, importe recibido y comisiones.
 
-## `EC-03` Planees y Suscripciones
+## `EC-03` Planes y Suscripciones
 
-Contratación, renovación, cambios, caducidad y condiciones por plan
+[**doc:**](./chains/ec-03-planes-y-suscripciones.md) Contratación, renovación, cambios, caducidad y condiciones por plan
 
 ## `EC-04` Aportación y Retirada de Liquidez
 
