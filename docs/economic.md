@@ -29,7 +29,7 @@ Veyra tiene 8 cadenas economicas.
 
 ## `EC-07` Liquidaciones y Pérdidas
 
-Liquidación de garantias insuficientes y asignación de pérdidas.
+[**doc:**](./chains/ec-07-liquidaciones-y-perdidas.md) Liquidación de garantias insuficientes y asignación de pérdidas.
 
 ## `EC-08` Ingresos del Protocolo
 
