@@ -1,1 +1,13 @@
-# Security
+# Seguridad
+
+**Límite de confianza.** El MVP usa Anvil, ERC-20 de prueba con transferencias exactas y un precio local que publica el administrador. Este rol controla la valoración que puede habilitar una apertura o liquidación. Las tarifas y los umbrales quedan fijados al desplegar.
+
+**Permisos.** Cada cuenta opera sobre sus saldos, participaciones y préstamos. Una tercera cuenta puede liquidar una posición elegible usando su propio MockUSD. La dirección de tesorería fijada al desplegar retira exclusivamente sus ingresos hacia esa misma dirección. La emisión de tokens de prueba para el escenario se realiza en carteras externas. Solo un depósito autorizado acredita esos tokens en Veyra.
+
+**Respaldo y ejecución.** En las entradas y salidas ERC-20 comprobar el éxito de la llamada y el importe efectivo en la custodia y en el destinatario. Los movimientos internos solo reclasifican fondos respaldados. Una interacción externa durante una operación no debe poder consumir el mismo saldo desde otra entrada del protocolo. Un fallo revierte también las actualizaciones y eventos provisionales. Los productos y cocientes deben producir el resultado entero especificado, incluido cuando el producto intermedio requiera más precisión que el resultado final. [Reglas de custodia](./economic.md)
+
+**Valoración del fondo.** El patrimonio incluye los préstamos por su deuda nominal actualizada hasta el cierre. Antes de una liquidación puede superar el importe recuperable. La pérdida afecta a las participaciones en circulación al ejecutarse el cierre. En las pruebas se registra el orden de los reembolsos y las liquidaciones.
+
+**Precio y tiempo.** Aperturas y liquidaciones requieren precio positivo con fecha de publicación válida. Una devolución ordinaria depende de la deuda y del tiempo del bloque, por lo que puede reducir o cerrar la deuda aunque el precio haya caducado. Los cambios de precio se registran y se vuelven a evaluar al ejecutar la operación.
+
+**Trazabilidad.** En cada ejecución, identificar los eventos por cadena, dirección del contrato, hash de transacción e índice de log del recibo. Para conciliar ingresos se cuenta una sola vez el cobro de origen. Un evento ERC-20 de transferencia y el evento económico que lo explica pueden describir el mismo movimiento. El escenario de Anvil contrasta los registros con los balances y el estado final.

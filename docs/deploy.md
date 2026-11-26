@@ -1,1 +1,9 @@
-# Deploy
+# Despliegue local
+
+El objetivo de v0.1.0 es desplegar y repetir el mismo mercado en Anvil. El repositorio parte de la plantilla de Foundry. El script existente despliega `Counter`. El despliegue de Veyra quedará verificable con el siguiente procedimiento cuando existan sus contratos y su script.
+
+1. Arrancar una instancia limpia de Anvil. Registrar la cadena y las direcciones de administrador, emisor de los tokens de prueba, tesorería y participantes. El escenario principal usa ocho cuentas de usuario distintas: dos proveedores, dos prestatarios, liquidador, emisor y destinatario del pago, y suscriptor. Reservar además cuentas de administración y tesorería. El administrador puede encargarse de emitir los tokens de prueba.
+2. Desplegar los dos ERC-20 y comprobar código, dirección y decimales. Inicializar la custodia una sola vez con esas direcciones, el administrador, la tesorería y los parámetros de referencia. Usar direcciones distintas para ambas funciones y para la custodia, y distintas de cero. Verificar desde la cadena la configuración efectiva y que ambos tokens están habilitados. [Configuración económica](./economic.md)
+3. Publicar el precio inicial desde el administrador. La publicación toma la marca temporal del bloque. Verificar que las reservas, el suministro de participaciones y el número de préstamos activos empiezan a cero.
+4. Emitir tokens de prueba a carteras de los actores. Cada actor autoriza a la custodia y deposita lo que necesite para sus operaciones. Verificar que la emisión en cartera y el depósito produzcan los movimientos previstos.
+5. Ejecutar el [escenario de aceptación](./tests.md) conservando medidas en unidades mínimas de cada token. Tomar el bloque de apertura como origen del reloj de los préstamos. Preparar las transacciones que comparten instante para incluirlas en el mismo bloque en el orden indicado, comprobando el tiempo y los recibos al minar. Repetir desde una instancia limpia.

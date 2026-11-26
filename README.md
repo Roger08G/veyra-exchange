@@ -13,7 +13,7 @@ Veyra es una plataforma financiera basada en contratos inteligentes EVM que inte
 ## Alcance del MVP — `v0.1.0`
 
 - **Entorno:** despliegue local en Anvil, con precios simulados y configurables para valorar las garantías.
-- **Activos:** dos tokens de prueba; uno para pagos y préstamos, y otro como garantía.
+- **Activos:** MockUSD (6 decimales) para pagos, cuotas, liquidez y deuda. MockETH (18 decimales) sirve de garantía. Las cuentas admiten depósitos y retiradas de ambos.
 - **Mercado:** un único mercado de préstamos y un único fondo de liquidez.
 - **Cuentas:** depósitos y retiradas, manteniendo los saldos disponibles para pagos separados del capital aportado al fondo de liquidez.
 - **Pagos:** transferencias individuales entre cuentas, con comisiones según el plan vigente del emisor y registro de cada operación.
@@ -26,21 +26,21 @@ Veyra es una plataforma financiera basada en contratos inteligentes EVM que inte
 
 ## Economía
 
-Completar en Anvil pagos, aportaciones y retiradas de liquidez, un préstamo devuelto y otro liquidado, incluido un caso con pérdidas. Comprobar que los movimientos de fondos, los saldos, las deudas y el valor de las participaciones concuerdan con las reglas definidas en el archivo `economic.md`.
+El primer hito es un despliegue reproducible en Anvil. En la misma instancia deben cuadrar un pago interno, una suscripción, una aportación y su reembolso, un préstamo devuelto, otro liquidado con pérdida y las retiradas externas de usuarios y tesorería. Las ocho fichas especifican las reglas y el plan de pruebas fija los resultados esperados.
 
-> [**doc:**](./docs/economic.md)
+> [Cadenas económicas y configuración de referencia](./docs/economic.md) · [Tokens](./docs/tokens.md)
 
-## Despliege
+## Despliegue
 
-> [**doc:**](./docs/deploy.md)
+> [Despliegue local en Anvil](./docs/deploy.md)
 
 ## Tests y Validación
 
-> [**doc:**](./docs/tests.md)
+> [Plan de pruebas y escenario de aceptación](./docs/tests.md)
 
 ## Seguridad
 
-> [**doc:**](./docs/security/)
+> [Custodia, permisos y supuestos de seguridad](./docs/security.md)
 
 ## Licencia
 
