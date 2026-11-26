@@ -21,6 +21,7 @@ Los commits se estructuraran con un encabezado:
 Las ramas se estructuraran por vesiones, por defecto se trabaja en main.
 
 - **v0.1.0** Branch que clone [main] para el MVP.
+- **v1.0.0** Branch de producción que clone [main]
 
 ### Releases y Tags
 
