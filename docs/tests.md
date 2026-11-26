@@ -31,3 +31,27 @@ La suite actual de Foundry cubre el contrato de ejemplo `Counter`. Los siguiente
 | Abrir, cerrar y volver a abrir desde la misma cuenta. Intentar devolver o liquidar usando el primer ID. | La segunda apertura tiene otro ID. El intento sobre el primero revierte sin modificar la nueva deuda. |
 
 Los casos de fronteras aritméticas con tarifas fuera del perfil, estados preparados inconsistentes y operaciones excluidas se verifican por separado de los recorridos alcanzables. Un caso documentado pasa a estar cubierto cuando existe una prueba ejecutable que comprueba su resultado.
+
+## Suites de Foundry
+
+| Directorio | Qué debe demostrar | Caso representativo |
+| --- | --- | --- |
+| `test/unit/` | La regla de un solo módulo con entradas de frontera. El fuzzing de importes y tiempos compara el resultado con un cálculo independiente. | EC-06 / INV-01 / CL-05 conserva el resto fraccionario de un préstamo. |
+| `test/sanity/` | Una instancia recién desplegada tiene los roles, direcciones, tokens y parámetros previstos, y responde por su interfaz pública. | Verificar el estado inicial y completar un depósito y una retirada mínima comprobando la cartera y la custodia. |
+| `test/integration/` | Una operación o secuencia cruza módulos reales usando actores separados. Comprobar partidas, eventos, custodia y efectos ante fallo. | Abrir, devolver un préstamo y liquidar otro en el recorrido principal. Comprobar por separado el cierre con sobrante. |
+| `test/regression/` | Una secuencia fija conserva un resultado conocido. Cada defecto corregido incorpora la entrada mínima, el resultado esperado y su referencia económica. | Fijar como caso inicial dos préstamos pequeños cuyos intereses fraccionarios no se pueden sumar para aumentar el patrimonio. |
+| `test/security/` | Cada permiso admite al actor correcto y rechaza al incorrecto. La custodia conserva su respaldo ante fallos de interacción. | Probar una retirada de ingresos como administrador (EC-08 / INV-09 / CL-37) y la reversión completa de una salida ERC-20 fallida. |
+| `test/invariant/` | Tras secuencias de varios actores, las partidas concilian por token, el suministro coincide con las participaciones y el patrimonio cuadra al tiempo observado. | Alternar préstamos, pagos, devoluciones y liquidaciones. El modelo de referencia lleva los excedentes directos y las deudas por separado. |
+| `test/performance/` | Medir gas por operación, tamaño desplegado y coste de la valoración al crecer el mercado. | Comparar el gas de aportar y reembolsar con distinto número de préstamos activos y con historiales cerrados de diferente longitud. |
+
+Las suites comparten en `test/support/` las cuentas, el despliegue, los importes de referencia y las rutinas de conciliación. El modelo esperado parte de las fichas y usa aritmética independiente del contrato. Los dobles de tokens se reservan a las pruebas que comprueban transferencias fallidas o inexactas. La integración ordinaria utiliza los dos mocks del despliegue.
+
+Registrar para cada caso la referencia `EC / INV / CL`, el nombre de la prueba y la aserción observable. Una prueba de autorización debe distinguir el rechazo por identidad del rechazo por saldo, precio o estado: preparar primero una operación válida y variar solo el actor. Guardar la semilla o secuencia que produjo un fallo aleatorio para incorporarlo a regresión.
+
+## Presupuestos de rendimiento
+
+La primera implementación medirá depósito, retirada, pago, apertura, devolución, liquidación, aportación y reembolso. Separar el coste de preparación de la transacción medida. Fijar versiones de Forge y Solidity, configuración del optimizador, versión de EVM, estado inicial y condiciones de acceso al almacenamiento. Guardar el gas por operación, el tamaño desplegado de `Veyra` y el commit que produjo cada medida.
+
+La valoración exacta del fondo es el punto sensible. Probar como escalones iniciales 0, 1, 10 y 100 préstamos activos para aportación, reembolso y consulta de patrimonio. Repetir con igual número de activos y más préstamos cerrados. Los pagos y las operaciones sobre una posición identificada deben poder ejecutarse sin recorrer el historial. Toda optimización de la valoración debe producir el mismo patrimonio que la suma de caja y deuda entera proyectada de cada préstamo al mismo instante. [Regla de EC-04](./chains/ec-04-aportacion-y-retirada.md)
+
+Con la primera medición reproducible se fijarán el presupuesto de gas de cada operación y el volumen de referencia de la simulación, con margen frente al límite de gas de su bloque. Una ruta que exceda el presupuesto o no quepa en ese bloque al volumen declarado impide aceptar la entrega. El informe debe mostrar el escenario afectado y la variación frente a la referencia. Los escalones anteriores son cargas de prueba propuestas, no capacidad demostrada.
