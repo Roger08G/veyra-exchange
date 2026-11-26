@@ -30,6 +30,10 @@ El primer hito es un despliegue reproducible en Anvil. En la misma instancia deb
 
 > [Cadenas económicas y configuración de referencia](./docs/economic.md) · [Tokens](./docs/tokens.md)
 
+## Arquitectura
+
+La [arquitectura de integración del MVP](./docs/arquitectura.md) define la custodia común, las interfaces, el estado que gestiona cada módulo y el orden de implementación.
+
 ## Despliegue
 
 > [Despliegue local en Anvil](./docs/deploy.md)
