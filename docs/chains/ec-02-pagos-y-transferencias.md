@@ -8,7 +8,7 @@ El objetivo de esta cadena es permitir que un usuario transfiera fondos desde su
 
 > Tokens permitidos: [tokens](../tokens.md)
 
-El README de `v0.1.0` incluye pagos individuales entre cuentas. `economic.md` también menciona pagos por lotes; su inclusión en el MVP y sus reglas concretas están pendientes de definición.
+La v0.1.0 admite pagos individuales en MockUSD entre cuentas distintas.
 
 ## Actores
 
@@ -31,59 +31,53 @@ En cada operación se identifican el emisor, el destinatario, el token, el impor
 
 Los saldos bloqueados por garantías u otras obligaciones, las participaciones del fondo de liquidez y las deudas son estados asociados que `EC-02` no modifica.
 
-**Reglas contables:** El cargo al emisor, el importe acreditado al destinatario y la comisión deben guardar la relación que establezca la regla de cobro finalmente definida.
+**Reglas contables.** El emisor elige el importe bruto que se descuenta de su saldo.
 
 La comisión cobrada se separa de los saldos disponibles y se registra como ingreso del protocolo en `EC-08`. El importe recibido se acredita al destinatario, no al protocolo.
 
 El pago entre cuentas es un movimiento interno: no constituye un depósito ni una retirada de tokens del contrato de cuentas. Los importes de tokens diferentes no se mezclan ni se convierten entre sí.
 
-Queda pendiente decidir si el importe solicitado incluye la comisión o si esta se añade al importe enviado. Hasta que se decida, no se fija una fórmula para el cargo ni para el importe recibido.
+El destinatario recibe el bruto menos la comisión del plan del emisor. Se redondea la comisión hacia abajo una vez por pago.
 
 ## Flujo Económico
 
 ### Flujo de Pago Individual
 
-El emisor ordena un pago a una cuenta destinataria e indica el token y el importe solicitado. Veyra identifica a las partes, comprueba que el token y la operación cumplen las condiciones aplicables y consulta el plan vigente del emisor para calcular la comisión.
+El emisor ordena un pago individual de MockUSD e indica destinatario y bruto. El protocolo comprueba ambas cuentas, el saldo y la tarifa del plan vigente al ejecutar.
 
 Veyra comprueba que el saldo disponible del emisor cubre el cargo total que resulte de la regla de cobro definida. Si se cumplen las validaciones, reduce el saldo disponible del emisor, acredita al destinatario el importe que corresponda y registra la comisión como ingreso del protocolo.
 
-La operación queda registrada con los datos necesarios para identificar el pago, el importe recibido y la comisión. El pago no modifica saldos bloqueados, deudas ni participaciones del fondo.
+El registro identifica emisor, destinatario, token, bruto cargado, neto acreditado, plan aplicado y comisión. Este abono puede ser la primera operación del destinatario. El pago conserva íntegros el bloqueo de garantías, la deuda y las participaciones.
 
 ### Flujo de Pagos por Lotes
 
-Un pago por lote agruparía varias instrucciones de pago de un emisor. Antes de incorporarlo al alcance de `v0.1.0` deben definirse su disponibilidad, la forma de calcular el cargo y la comisión, sus límites y el tratamiento de los fallos.
+La interfaz de la v0.1.0 admite una instrucción de pago por operación.
 
-Hasta que esas reglas se concreten, esta cadena no presupone que un lote se ejecute de forma atómica ni que permita ejecuciones parciales. Cada pago que llegue a completarse deberá respetar las reglas contables y de autorización que le sean aplicables.
+Las propiedades de lote se conservan como referencia para una ampliación posterior.
 
 ## Validaciones y Restricciones
 
 ### Validaciones de Pagos Individuales
 
 - El emisor debe ordenar el pago desde su propia cuenta. El administrador no puede utilizar fondos ajenos por el mero hecho de administrar el protocolo; no se define aquí una facultad de pago por cuenta de terceros.
-- El destinatario debe identificarse de forma válida para que el importe se acredite a la cuenta prevista. Los requisitos concretos de registro o existencia previa de la cuenta están pendientes de definición.
-- El token debe estar autorizado para la operación. `tokens.md` identifica **MockUSD** para pagos y **MockETH** principalmente para garantías; la admisión concreta de MockETH en pagos queda pendiente de definición.
+- El destinatario es distinto de cero y del emisor. Las cuentas se identifican por dirección y el primer abono no requiere alta ni depósito previo.
+- El token de pago es MockUSD.
 - El importe solicitado debe ser mayor que cero y expresarse en las unidades mínimas del token correspondiente.
 - El saldo disponible del emisor debe cubrir el cargo total calculado para la operación. Los fondos bloqueados, las participaciones del fondo y los saldos de terceros no pueden utilizarse para completarlo.
 - La comisión debe calcularse con las condiciones del plan vigente del emisor al ejecutar el pago. Si no puede determinarse una configuración válida, la operación se rechaza.
-- El cargo, el importe acreditado y la comisión son importes enteros no negativos del mismo token. Su relación debe cumplir `INV-02`; las condiciones adicionales sobre un abono cero y los límites de comisión siguen pendientes.
+- La comisión debe ser inferior al bruto positivo. El abono neto al destinatario es positivo.
 - Los importes calculados y los saldos resultantes deben poder representarse sin desbordamientos, subdesbordamientos ni truncamientos silenciosos.
 - Si falla una validación o una actualización necesaria, el pago individual debe revertirse por completo; no deben quedar cargos, abonos, comisiones ni registros definitivos parciales.
 
-### Restricciones Pendientes de Definición
+### Restricciones del MVP
 
-- Si la comisión se descuenta del importe solicitado o se añade a él; las tasas, el redondeo, sus límites y la admisibilidad de un abono cero que correspondan según `EC-03`.
-- Si se permiten pagos a la propia cuenta y qué comportamiento contable y comisión tendrían.
-- Los requisitos concretos de identificación, existencia y registro del destinatario.
-- La inclusión de pagos por lotes en `v0.1.0`, su tamaño máximo, el tratamiento de destinatarios repetidos, el cálculo de comisiones y si un fallo revierte el lote o permite resultados parciales.
-- Si **MockETH**, además de **MockUSD**, puede utilizarse para pagos en esta versión.
-
-Estas decisiones deben concretarse antes de implementar los comportamientos que dependen de ellas y antes de formular invariantes o casos límite que presupongan una opción.
+El cargo total coincide con el bruto solicitado. La [tabla de planes](../economic.md) fija la tarifa. Los lotes, el autopago y los pagos en MockETH quedan fuera del alcance.
 
 ## Invariantes y Propiedades
 
 Las siguientes propiedades se refieren exclusivamente a los efectos atribuibles a `EC-02`, para cada token autorizado para la operación. Los cambios de estado se calculan como valor posterior menos valor anterior. Las operaciones de otras cadenas no se atribuyen al pago al evaluar estas expresiones.
 
-Las fórmulas usan el **cargo total**, el **importe acreditado** y la **comisión cobrada**. Estos valores no deciden si la comisión se incluye en el importe solicitado o se añade a él. La disponibilidad de pagos por lotes y el tratamiento de pagos a la propia cuenta siguen pendientes de definición.
+El cargo total es el importe solicitado. El abono al destinatario y la comisión suman ese cargo.
 
 ### Invariante `INV-01` - Conservación de Fondos
 
@@ -111,7 +105,7 @@ Para cada pago completado, la variación de la suma de saldos disponibles más l
 
 En `EC-02`, el cargo realizado al emisor en un pago completado debe corresponder exactamente al importe acreditado al destinatario más la comisión cobrada por el protocolo.
 
-Para cada pago completado, el cargo total al emisor es igual a la suma del abono al destinatario y la comisión. Esta relación es válida tanto si la futura regla incluye la comisión en el importe solicitado como si la añade.
+Para cada pago completado, el cargo total al emisor es igual a la suma del abono al destinatario y la comisión.
 
 ```math
 \forall p \in P:\quad
@@ -143,11 +137,11 @@ El cargo y el abono son movimientos contables brutos de la operación. Para cuen
 - $\Delta B_{\text{disponible}}(u,t_p,p)$: variación real del saldo disponible de la cuenta $u$ atribuible al pago.
 - $\Delta B_{\text{totalDisponible}}(t_p,p)$: variación del total disponible registrado para el token atribuible al pago.
 
-Si en el futuro se admiten pagos a la propia cuenta, habrá que definir su tratamiento. En ese caso, la variación neta de esa cuenta sería el abono menos el cargo, no el cargo bruto; el total disponible seguiría disminuyendo por la comisión.
+Un autopago se rechaza antes de modificar el saldo o cobrar la comisión.
 
 ### Invariante `INV-03` - Suficiencia de Saldo
 
-En `EC-02`, un pago solo puede completarse si el saldo disponible del emisor antes de ejecutarlo cubre el cargo total. El cargo incluye la comisión cuando corresponda según la regla de cobro que se defina.
+El saldo disponible del emisor debe cubrir el bruto solicitado.
 
 Para cada pago completado, el cargo total no puede superar el saldo disponible previo del emisor para el token utilizado.
 
@@ -207,7 +201,7 @@ Para cada pago completado, el incremento de ingresos retenidos del protocolo es 
 - $C_{\text{comision}}(p)$: comisión efectivamente cobrada por el pago.
 - $C_{\text{vigente}}(p)$: comisión calculada con el plan vigente al ejecutar el pago y las reglas aplicables de `EC-03`.
 
-Las tasas y el redondeo siguen pendientes de definición; esta propiedad no fija sus valores ni determina si la comisión se incluye en el importe solicitado.
+La comisión es la parte entera de bruto × tarifa del plan / 10 000.
 
 ### Invariante `INV-06` - Atomicidad de Pagos
 
@@ -226,7 +220,7 @@ S_{\text{despues}}(f) = S_{\text{antes}}(f)
 - $S_{\text{antes}}(f)$: estado contable y registros de `EC-02` afectados por el intento inmediatamente antes de su ejecución.
 - $S_{\text{despues}}(f)$: esos mismos estados y registros después del intento, considerando sus efectos atribuibles.
 
-Esta propiedad se aplica al pago individual. No decide si un eventual lote fallido revierte todas sus instrucciones o permite resultados parciales.
+La transacción individual revierte todos sus efectos ante cualquier fallo.
 
 ### Invariante `INV-07` - Protección de Fondos Bloqueados
 
@@ -259,7 +253,7 @@ B_{\text{disponible}}^{\text{antes}}(e_p,t_p)
 
 Si se incorporan pagos por lotes a `EC-02`, los importes completados deberán conservarse para cada token. El cargo total efectivamente aplicado al emisor debe corresponder a los importes acreditados y a las comisiones efectivamente cobradas, sin contar dos veces ninguna comisión.
 
-Para cada lote y token, la suma de cargos efectivos es igual a la suma de importes acreditados en pagos completados más todas las comisiones efectivamente cobradas por el lote en ese token. Los pagos no completados no aportan cargos, abonos ni comisiones propias definitivas. Una posible comisión independiente del lote sigue pendiente de definición y, si se permite, se contabiliza por separado.
+Esta propiedad describe la suma de movimientos efectivos por token en una futura versión que habilite lotes.
 
 ```math
 \forall l \in L,\quad \forall t \in T:\quad
@@ -275,15 +269,15 @@ K_{\text{total}}(l,t)
 - $P_{l,t}$: conjunto de pagos completados del lote $l$ que utilizan el token $t$.
 - $K_{\text{total}}(l,t)$: suma de los cargos definitivos al emisor atribuibles al lote $l$ para el token $t$.
 - $A_{\text{recibida}}(p)$: importe acreditado al destinatario por el pago completado $p$.
-- $C_{\text{total}}(l,t)$: suma de todas las comisiones definitivas cobradas por el lote para ese token, contabilizadas una sola vez, incluidas las que se definan a nivel de lote si las hubiera.
+- $C_{\text{total}}(l,t)$: comisiones definitivas del lote por token en esa extensión.
 
-Esta propiedad es condicional y no incorpora los lotes al MVP ni decide sus límites, su estructura de comisiones o su política ante fallos. Si se permiten resultados parciales, la igualdad se evalúa sobre los efectos definitivos; si el lote se revierte íntegramente, esos efectos son cero.
+En v0.1.0 el conjunto de lotes completados es vacío. INV-08 queda reservada para una ampliación.
 
 ## Casos Límite y Escenarios de Fallo
 
 Los siguientes casos son una referencia para las futuras pruebas de `EC-02`. En cada pago individual rechazado o fallido se revierten sus efectos, incluidos cargos, abonos, comisiones y registros definitivos. Las referencias a `EC-03` y `EC-08` identifican dependencias del pago; no amplían estos casos a los flujos propios de esas cadenas.
 
-Los importes se expresan en unidades mínimas del token utilizado. Cuando un caso depende de una regla pendiente, se describen las condiciones que deben mantenerse sin elegir anticipadamente esa regla. Las referencias `INV-01` a `INV-08` corresponden a las invariantes de este documento.
+Los importes se expresan en unidades mínimas de MockUSD.
 
 ### Autorización, Destinatario y Token
 
@@ -292,10 +286,10 @@ Los importes se expresan en unidades mínimas del token utilizado. Cuando un cas
 | `CL-01` | Un usuario intenta pagar desde su propia cuenta. | Puede completarse si reúne todas las condiciones; el cargo se efectúa sobre su saldo disponible. | Validaciones, `INV-03` |
 | `CL-02` | Un usuario o el administrador intenta ordenar un pago con fondos de otra cuenta. | Se rechaza sin cargo, abono, comisión ni registro definitivo. Administrar el protocolo no concede acceso a fondos ajenos y esta cadena no define pagos por cuenta de terceros. | Validaciones, `INV-04`, `INV-06` |
 | `CL-03` | El destinatario no puede identificarse válidamente. | Se rechaza el pago sin efectos contables definitivos; no se abona a una cuenta distinta de la prevista. | Validaciones, `INV-04`, `INV-06` |
-| `CL-04` | El destinatario todavía no existe o no está registrado. | Pendiente de la regla de existencia y registro. Si la regla lo admite, el abono debe llegar a la cuenta prevista; si lo rechaza, no quedan efectos parciales. | Validaciones, `INV-02`, `INV-06` |
-| `CL-05` | El emisor indica su propia cuenta como destinatario. | Pendiente de decidir si se permite. Si se rechaza, no hay efectos; si se permite, deben definirse sus movimientos y comisión, respetando el cargo bruto, el abono y las invariantes aplicables. | `INV-01`–`INV-03`, `INV-05`, `INV-06` |
+| `CL-04` | El destinatario todavía no existe o no está registrado. | Se permite el primer abono a una dirección válida y distinta del emisor. | Validaciones, `INV-02`, `INV-06` |
+| `CL-05` | El emisor indica su propia cuenta como destinatario. | Se rechaza sin cargo ni comisión. | `INV-01`–`INV-03`, `INV-05`, `INV-06` |
 | `CL-06` | Se utiliza un token no autorizado para pagos, incluso si comparte nombre o símbolo con uno autorizado. | Se rechaza sin efectos. La comprobación identifica el token por su dirección y autorización aplicable. | Validaciones, `INV-06` |
-| `CL-07` | Se solicita pagar con MockETH. | Su admisión para pagos está pendiente. Si se autoriza, se aplican las mismas propiedades por token y sus propias unidades mínimas; si no se autoriza, se rechaza sin efectos. | Validaciones, `INV-01`, `INV-06` |
+| `CL-07` | Se solicita pagar con MockETH. | Se rechaza. Los pagos internos utilizan MockUSD. | Validaciones, `INV-01`, `INV-06` |
 | `CL-08` | Emisor y destinatario mantienen saldos en varios tokens, incluido otro token autorizado que no participa en el pago. | Solo pueden cambiar los saldos de las partes para el token utilizado y los ingresos correspondientes a ese token. No hay conversión ni mezcla entre tokens. | `INV-01`, `INV-04`, `INV-05` |
 
 ### Importe, Saldo y Conservación
@@ -303,16 +297,16 @@ Los importes se expresan en unidades mínimas del token utilizado. Cuando un cas
 | ID | Caso | Resultado esperado | Referencia |
 |---|---|---|---|
 | `CL-09` | El importe solicitado es cero. | Se rechaza sin cambios definitivos. | Validaciones, `INV-06` |
-| `CL-10` | El importe solicitado es una unidad mínima del token. | Se aplican la comisión y el redondeo que se definan. Si el pago es válido, el cargo equivale exactamente al abono más la comisión; si no cumple una condición, se rechaza. | `INV-01`–`INV-03`, `INV-05` |
+| `CL-10` | El importe solicitado es una unidad mínima del token. | Un bruto de una unidad genera comisión cero y acredita una unidad. | `INV-01`–`INV-03`, `INV-05` |
 | `CL-11` | El cargo total es una unidad menor que el saldo disponible previo. | Supera la comprobación de saldo. Si el pago se completa, queda una unidad disponible en el emisor, siempre que emisor y destinatario sean cuentas distintas. | `INV-02`, `INV-03` |
 | `CL-12` | El cargo total coincide con el saldo disponible previo. | Supera la comprobación de saldo. Si se completa entre cuentas distintas, el saldo disponible del emisor queda a cero; se cumplen también las demás validaciones. | `INV-02`, `INV-03` |
 | `CL-13` | El cargo total supera el saldo disponible previo en una unidad mínima o más. | Se rechaza el pago completo sin utilizar saldos bloqueados ni fondos ajenos. | `INV-03`, `INV-06`, `INV-07` |
 | `CL-14` | El saldo disponible del emisor es cero, aunque tenga fondos bloqueados o participaciones del fondo. | Ningún cargo positivo puede cubrirse con esos fondos; el intento se rechaza. | `INV-03`, `INV-06`, `INV-07` |
-| `CL-15` | El importe solicitado cabe en el saldo, pero el cargo total no cabe después de calcular la comisión. | Se rechaza el pago. La suficiencia se comprueba sobre el cargo total conforme a la regla de cobro que se defina. | `INV-03`, `INV-06` |
+| `CL-15` | Se intenta sumar la comisión una segunda vez al bruto que cubre el saldo. | El cargo correcto es exactamente el bruto. Un cargo superior incumple la conservación del pago. | `INV-03`, `INV-06` |
 | `CL-16` | El destinatario no tiene saldo previo del token o ya tiene un saldo positivo. | Si el pago se completa, se acredita exactamente el importe recibido sobre el saldo previo, sin modificar sus otros tokens. | `INV-01`, `INV-02`, `INV-04` |
 | `CL-17` | Existe un solo usuario con saldo disponible, o varios usuarios comparten saldo del mismo token. | En un pago completado entre cuentas válidas, la suma de las variaciones de todos los saldos disponibles más el ingreso cobrado es cero. Los saldos de terceros permanecen iguales. | `INV-01`, `INV-04`, `INV-05` |
 | `CL-18` | Hay ingresos retenidos o un excedente de custodia antes del pago. | El pago no usa el excedente ni atribuye ingresos previos al pago. La custodia no cambia; la variación de ingresos es solo la comisión de la operación. | `INV-01`, `INV-05` |
-| `CL-19` | El cargo, el abono, los ingresos o una operación intermedia alcanzan el máximo representable o lo excederían. | Si todos los resultados exactos caben y se cumplen las demás condiciones, puede completarse; si alguno no cabe, se revierte todo el pago sin truncamiento ni desbordamiento. | Validaciones, `INV-01`, `INV-02`, `INV-06` |
+| `CL-19` | El producto de bruto por tarifa excede 256 bits, o un saldo resultante rebasa su máximo. | El primer caso usa el cociente entero exacto. Un saldo final fuera de rango revierte todo el pago. | Validaciones, `INV-01`, `INV-02`, `INV-06` |
 | `CL-20` | La contabilidad previa de saldos, ingresos o respaldo ya es inconsistente. | La comprobación debe identificar el incumplimiento de la propiedad correspondiente; un intento rechazado no produce cambios parciales. EC-02 no define aquí cómo reparar ese estado ni establece que cada operación detecte cualquier inconsistencia previa. | `INV-01`, `INV-02`, `INV-06` |
 
 ### Comisiones y Plan Vigente
@@ -321,11 +315,11 @@ Los importes se expresan en unidades mínimas del token utilizado. Cuando un cas
 |---|---|---|---|
 | `CL-21` | La comisión calculada es cero. | Si el pago se completa, el cargo coincide con el abono y los ingresos del protocolo no aumentan. | `INV-01`, `INV-02`, `INV-05` |
 | `CL-22` | La comisión calculada es positiva. | Si el pago se completa, se registra exactamente una vez para el token utilizado y el cargo es igual al abono más esa comisión. | `INV-01`, `INV-02`, `INV-05` |
-| `CL-23` | La comisión es una unidad mínima o el cálculo produce una fracción de unidad. | Se aplica la regla entera de redondeo que se defina en `EC-03`; el importe cobrado y el registrado coinciden exactamente. No se fija aquí el sentido del redondeo. | `INV-02`, `INV-05` |
-| `CL-24` | La comisión calculada es igual al importe solicitado. | Su admisibilidad y el abono resultante dependen de la regla de cobro y de los límites pendientes. Si se permite, se cumplen las relaciones de conservación; si no, se rechaza sin efectos. | `INV-01`, `INV-02`, `INV-05`, `INV-06` |
-| `CL-25` | La comisión calculada supera el importe solicitado. | No se presupone que sea válida o inválida: debe aplicarse el límite y la regla de cobro que se definan. No se permite un abono negativo ni una operación que incumpla la conservación. | `INV-01`, `INV-02`, `INV-05`, `INV-06` |
-| `CL-26` | La regla finalmente incluye la comisión en el importe solicitado. | Condicional a esa decisión: el cargo, el abono y la comisión deben seguir la regla adoptada y satisfacer cargo igual a abono más comisión; el saldo debe cubrir el cargo. | `INV-02`, `INV-03`, `INV-05` |
-| `CL-27` | La regla finalmente añade la comisión al importe solicitado. | Condicional a esa decisión: el cargo, el abono y la comisión deben seguir la regla adoptada y satisfacer cargo igual a abono más comisión; el saldo debe cubrir el cargo completo. | `INV-02`, `INV-03`, `INV-05` |
+| `CL-23` | La comisión es una unidad mínima o el cálculo produce una fracción de unidad. | Se redondea hacia abajo y se registra exactamente el importe cobrado. | `INV-02`, `INV-05` |
+| `CL-24` | La comisión calculada es igual al importe solicitado. | Se rechaza el resultado. Las tarifas del MVP dejan un abono positivo. | `INV-01`, `INV-02`, `INV-05`, `INV-06` |
+| `CL-25` | La comisión calculada supera el importe solicitado. | Se rechaza sin efectuar el pago. | `INV-01`, `INV-02`, `INV-05`, `INV-06` |
+| `CL-26` | El emisor ordena un pago bruto con comisión positiva. | Se carga el bruto y se acredita el bruto menos la comisión. | `INV-02`, `INV-03`, `INV-05` |
+| `CL-27` | El cálculo intenta añadir la comisión al bruto solicitado. | La operación no puede cargar ese exceso. El único cargo autorizado es el bruto. | `INV-02`, `INV-03`, `INV-05` |
 | `CL-28` | El plan cambia o caduca antes de ejecutarse el pago. | Se utiliza el plan vigente en el momento de ejecución. Si no puede determinarse una configuración válida, se rechaza sin efectos parciales. | `INV-05`, `INV-06` |
 | `CL-29` | Se completan varios pagos con comisiones del mismo token. | Los ingresos aumentan por la suma de las comisiones efectivamente cobradas, cada una una sola vez; no se atribuyen ingresos a otro token. | `INV-01`, `INV-05` |
 | `CL-30` | Una misma cantidad se paga mediante varias operaciones pequeñas. | Cada pago aplica el cálculo y redondeo vigentes para esa operación y conserva su propio cargo. No se presupone que sus comisiones sumen lo mismo que la comisión de un único pago. | `INV-02`, `INV-05` |
@@ -342,31 +336,31 @@ Los importes se expresan en unidades mínimas del token utilizado. Cuando un cas
 | `CL-36` | Una actualización falla después de un abono provisional al destinatario o del registro provisional del ingreso. | Se revierten todos los efectos del intento, incluidos cargo, abono, ingreso y registro definitivo. | `INV-01`, `INV-05`, `INV-06` |
 | `CL-37` | No se puede completar el registro necesario del pago tras cambios contables provisionales. | Se revierte el pago completo; no se conserva un pago contable sin su registro definitivo ni un registro de pago completado sin sus movimientos. | `INV-06` |
 | `CL-38` | Una llamada anidada o repetida intenta gastar el mismo saldo disponible. | Cada pago que se complete debe estar autorizado y cubrirse con el saldo que le corresponda inmediatamente antes de ejecutarse. Si no puede evitarse un doble gasto o contabilización duplicada, se revierte el intento afectado. | `INV-01`–`INV-03`, `INV-06` |
-| `CL-39` | Se realizan dos instrucciones independientes con los mismos datos de emisor, destinatario, token e importe. | Cada operación que se complete debe estar autorizada, contar con saldo suficiente y contabilizarse por separado. No se presupone una regla de deduplicación o identificador de solicitud que aún no está definida. | `INV-02`, `INV-03`, `INV-05` |
+| `CL-39` | Se realizan dos instrucciones independientes con los mismos datos de emisor, destinatario, token e importe. | Son dos operaciones independientes. Cada pago válido genera sus propios movimientos y su propio registro. | `INV-02`, `INV-03`, `INV-05` |
 | `CL-40` | Una secuencia mezcla pagos completados y rechazados entre varias cuentas. | Tras cada pago completado se comprueban las invariantes aplicables; cada intento fallido conserva el estado inmediatamente anterior a ese intento, incluidos los resultados de operaciones previas válidas. | `INV-01`–`INV-07` |
 
 ### Pagos por Lotes Condicionales
 
-Los siguientes casos solo se aplican si los lotes se incorporan a `EC-02`. No fijan su inclusión en `v0.1.0`, tamaño, estructura de comisiones ni política de fallos.
+CL-41 a CL-53 conservan el diseño de pruebas para una ampliación. En v0.1.0 cualquier solicitud por lote queda fuera de la interfaz y no produce movimientos.
 
 | ID | Caso | Resultado esperado | Referencia |
 |---|---|---|---|
-| `CL-41` | Se presenta un lote vacío o uno que supera el tamaño permitido. | Pendiente de definir los límites. Si se rechaza, no hay efectos definitivos; si se permite algún caso, sus cargos e ingresos deben respetar la regla de lote y `INV-08`. | `INV-06`, `INV-08` |
-| `CL-42` | Un lote contiene un solo pago. | Si el lote se admite, el pago debe cumplir las invariantes individuales y el total del lote debe incluir todos los cargos y comisiones definitivos aplicables. | `INV-01`–`INV-03`, `INV-05`, `INV-08` |
-| `CL-43` | Un lote contiene varios pagos válidos a destinatarios distintos. | Los importes efectivamente acreditados y las comisiones definitivas suman el cargo total del lote para cada token. Los saldos de terceros ajenos no cambian por esas instrucciones. | `INV-04`, `INV-08` |
-| `CL-44` | Un destinatario aparece más de una vez. | Su admisibilidad está pendiente. Si se permite, se contabiliza cada instrucción completada una sola vez y el total refleja todos sus abonos y comisiones definitivos. | `INV-02`, `INV-05`, `INV-08` |
-| `CL-45` | Un lote contiene pagos en distintos tokens. | Su admisibilidad está pendiente. Si se permite, el cargo, los abonos y las comisiones se comprueban por separado para cada token, sin conversión ni mezcla de unidades. | `INV-04`, `INV-05`, `INV-08` |
-| `CL-46` | Cada pago por separado parece cubrirse, pero la suma de los cargos definitivos excede el saldo disponible del emisor. | No puede gastarse dos veces el mismo saldo. El resultado del lote depende de la política pendiente; cada pago completado debe tener saldo suficiente y el total definitivo debe conservarse. | `INV-03`, `INV-07`, `INV-08` |
-| `CL-47` | El saldo disponible inicial cubre exactamente el total de cargos previstos del lote, o queda una unidad por debajo. | Si se exige cobertura previa del total, la igualdad supera esa comprobación y una unidad por debajo no. La comprobación agregada y el tratamiento de fallos están pendientes; en cualquier caso, cada cargo aplicado debe respetar el saldo disponible que le corresponda y no puede producir doble gasto. | `INV-03`, `INV-08` |
-| `CL-48` | Una instrucción es inválida y se adopta una política de lote atómico. | Condicional a esa política: se revierte el lote íntegro y no quedan cargos, abonos, comisiones ni registros definitivos del lote. | `INV-06`, `INV-08` |
-| `CL-49` | Una instrucción falla y se adopta una política de resultados parciales. | Condicional a esa política: la instrucción fallida no deja efectos parciales; los efectos definitivos de las completadas y las comisiones de lote permitidas deben satisfacer `INV-08`. | `INV-06`, `INV-08` |
-| `CL-50` | Fallan todas las instrucciones del lote. | Ningún pago fallido deja cargo, abono ni comisión propia. La posibilidad de una comisión de lote independiente está pendiente; cualquier efecto definitivo permitido debe cumplir `INV-08` y la política que se defina. | `INV-06`, `INV-08` |
-| `CL-51` | El lote tiene una comisión por instrucción, una comisión de lote o ambas, si se definen. | Cada comisión definitiva se cuenta una sola vez y para el token correspondiente; la suma de abonos y comisiones debe igualar el total cargado. | `INV-05`, `INV-08` |
-| `CL-52` | La suma de cargos, abonos o comisiones del lote excedería el rango representable. | No se admite truncamiento ni desbordamiento. La reversión total o el tratamiento de instrucciones previas depende de la política de fallos; los efectos definitivos deben satisfacer `INV-08`. | `INV-06`, `INV-08` |
-| `CL-53` | Una instrucción posterior falla después de actualizaciones provisionales en el lote. | Se revierte completamente esa instrucción. Las demás siguen la política de lote definida y los efectos definitivos conservan los importes por token. | `INV-06`, `INV-08` |
+| `CL-41` | Se presenta un lote vacío o uno que supera el tamaño permitido. | La interfaz excluye los lotes de cualquier tamaño. El intento no produce cargos ni ingresos. | `INV-06`, `INV-08` |
+| `CL-42` | Un lote contiene un solo pago. | Incluso con un solo elemento, el formato de lote queda fuera del MVP. El pago individual tiene su propia entrada. | `INV-01`–`INV-03`, `INV-05`, `INV-08` |
+| `CL-43` | Un lote contiene varios pagos válidos a destinatarios distintos. | El lote no se ejecuta. Los pagos individuales requieren operaciones independientes. | `INV-04`, `INV-08` |
+| `CL-44` | Un destinatario aparece más de una vez. | La repetición del destinatario no habilita un lote. El intento deja sus saldos intactos. | `INV-02`, `INV-05`, `INV-08` |
+| `CL-45` | Un lote contiene pagos en distintos tokens. | La operación por lote se excluye para cualquier combinación de tokens. | `INV-04`, `INV-05`, `INV-08` |
+| `CL-46` | Cada pago por separado parece cubrirse, pero la suma de los cargos definitivos excede el saldo disponible del emisor. | No se evalúa ni consume saldo agregado de lote. | `INV-03`, `INV-07`, `INV-08` |
+| `CL-47` | El saldo disponible inicial cubre exactamente el total de cargos previstos del lote, o queda una unidad por debajo. | La suficiencia del saldo agregado no habilita la operación por lote. | `INV-03`, `INV-08` |
+| `CL-48` | Una instrucción es inválida y se adopta una política de lote atómico. | El MVP carece de ejecución de lote. No se ejecuta ninguna instrucción. | `INV-06`, `INV-08` |
+| `CL-49` | Una instrucción falla y se adopta una política de resultados parciales. | La interfaz excluye los resultados parciales de un lote. Ninguna instrucción se confirma por esta vía. | `INV-06`, `INV-08` |
+| `CL-50` | Fallan todas las instrucciones del lote. | El intento de lote deja saldos y comisiones sin cambios. | `INV-06`, `INV-08` |
+| `CL-51` | El lote tiene una comisión por instrucción, una comisión de lote o ambas, si se definen. | No existen cargos ni comisiones de lote. | `INV-05`, `INV-08` |
+| `CL-52` | La suma de cargos, abonos o comisiones del lote excedería el rango representable. | El intento no llega a calcular importes agregados de lote. | `INV-06`, `INV-08` |
+| `CL-53` | Una instrucción posterior falla después de actualizaciones provisionales en el lote. | Ninguna instrucción de un lote puede producir cambios definitivos en el MVP. | `INV-06`, `INV-08` |
 
 ### Criterio de Cobertura
 
-Aplicar los casos pertinentes a cada token autorizado para pagos, con saldos previos cero y positivos, una o varias cuentas y los valores límite que admita la configuración. Comprobar las ocho propiedades cuando correspondan, tanto por operación como en secuencias, y comparar el estado inmediatamente anterior y posterior a cada intento fallido. Las variantes de lotes, autopagos, comisiones y destinatarios pendientes solo pueden resolverse cuando se definan sus reglas.
+En v0.1.0 verificar INV-01 a INV-07 con cuentas distintas, saldos límite y secuencias de éxito y fallo. Verificar por separado que la interfaz no permite ejecutar lotes.
 
 Esta matriz enumera clases de límites y fallos identificadas para `EC-02`; no demuestra que se hayan enumerado todas las secuencias posibles ni sustituye las pruebas o una verificación formal. Los estados inconsistentes son escenarios de detección de fallos, no estados que la cadena garantice reparar.

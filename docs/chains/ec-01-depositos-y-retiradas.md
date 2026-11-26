@@ -14,7 +14,7 @@ En esta cadena intervienen tres actores:
 
 - El usuario deposita **MockUSD** o **MockETH**, consulta su saldo y solicita retiradas de sus propios fondos disponibles.
 - El contrato de cuentas de Veyra valida los tokens admitidos, actualiza los saldos y ejecuta las retiradas cuando corresponde.
-- El administrador configura la lista blanca de tokens, pero no puede mover fondos de los usuarios ni modificar sus saldos arbitrariamente. En `v0.1.0` no puede desautorizar un token mientras existan saldos disponibles, fondos bloqueados, ingresos del protocolo u otras reservas contabilizadas pendientes para ese token.
+- El administrador configura las dos direcciones autorizadas para la instancia y puede deshabilitar un activo solo cuando no respalde saldos, garantías, caja, ingresos ni obligaciones abiertas del mercado. Estos permisos no le conceden control sobre los saldos de usuarios.
 
 ## Variables y Estado Contable
 
@@ -30,19 +30,19 @@ Las comisiones generadas por retiradas se separan del saldo disponible del usuar
 
 ## Flujo Económico
 
-### Flujo de Deposito
+### Flujo de Depósito
 
-El usuario ordena depositar una cantidad de un token admitido, Veyra recibe los tokens en el contrato de cuentas, aumenta el saldo disponible de ese usuario para ese token y no toca saldos bloqueados, ni deudas, ni participaciones del fondo.
+El titular autoriza a la dirección de custodia a transferir el token desde su cartera. Al depositar, se carga su cartera y se acreditan su disponible y el total disponible solo cuando el incremento de custodia coincide exactamente con el importe solicitado.
 
 Los depósitos no generan comisiones ni crean deuda.
 
-### Flujos de Retirada
+### Flujo de Retirada
 
 El usuario solicita retirar una cantidad de un token admitido, Veyra comprueba que el saldo disponible es suficiente, que no estén bloqueados por garantías u obligaciones y calcula la comisión aplicable según el plan del usuario `EC-03`.
 
-Reduce del saldo disponible el importe total solicitado y envía al usuario la cantidad neta descontada la comisión.
+El bruto se descuenta del disponible y del total disponible. La custodia transfiere el neto a la cartera del mismo titular. El token que respalda la comisión permanece en custodia.
 
-La comisón se contabiliza como ingreso del protocolo `EC-08`.
+La comisión se contabiliza como ingreso del protocolo `EC-08`.
 
 Las retiradas no afectan a deudas ni participaciones del fondo.
 
@@ -51,9 +51,9 @@ Las retiradas no afectan a deudas ni participaciones del fondo.
 ### Validaciones de Depósitos
 
 - El token debe estar autorizado en la lista blanca.
-- La cantidad depositada debe ser mayor que el mínimo permitido.
-- El depósito solo se acredita si los tokens han sido efectivamente recibidos por el contrato.
-- Veyra debe verificar que los tokens se hayan recibido correctamente antes de acreditar el saldo.
+- La cantidad debe superar estrictamente el mínimo por token que figura en la [configuración del MVP](../economic.md).
+- Comprobar el éxito de la transferencia desde la cartera del titular y medir el incremento del saldo ERC-20 de la custodia para ese depósito.
+- El incremento debe coincidir exactamente con la cantidad solicitada. Un excedente anterior al depósito queda excluido del cálculo.
 
 ### Validaciones de Retiradas
 
@@ -68,15 +68,17 @@ Las retiradas no afectan a deudas ni participaciones del fondo.
 
 ### Invariante `INV-01` - Respaldo de Saldos Disponibles
 
-En `EC-01` la suma de los saldos disponibles de los usuarios para un token nunca supera los tokens realmente custodiados por el contrato para ese token, descontando lo que esté claramente contabilizado como ingreso del protocolo.
+Cada unidad custodiada se atribuye a una sola partida por token. El total disponible se comprueba contra la suma de cuentas, incluidas las que hayan recibido pagos sin depositar previamente.
 
-Para cada token admitido: *el saldo custodiado menos ingresos del protocolo mayor o igual que la suma de los saldos disponibles* de todos los usuarios.
+Las dos relaciones se comprueban por token. La primera verifica el respaldo de los disponibles. La segunda concilia todas las partidas con el saldo físico.
 
 $$
-\forall t \in T:\quad
+\begin{aligned}
 B_{\text{contrato}}(t) - I_{\text{protocolo}}(t)
-\geq
-\sum_{u \in U} B_{\text{disponible}}(u,t)
+&\geq \sum_{u \in U} B_{\text{disponible}}(u,t), \\
+B_{\text{contrato}}(t)
+&= \sum_{u \in U} B_{\text{disponible}}(u,t) + G(t) + L(t) + I_{\text{protocolo}}(t) + X(t).
+\end{aligned}
 $$
 
 **Leyenda:**
@@ -84,8 +86,10 @@ $$
 - $T$: conjunto de tokens admitidos.
 - $U$: conjunto de usuarios.
 - $B_{\text{contrato}}(t)$: saldo real del token $t$ custodiado por el contrato.
-- $I_{\text{protocolo}}(t)$: ingresos del protocolo contabilizados en el token $t$.
+- $I_{\text{protocolo}}(t)$: ingresos cobrados y todavía retenidos en el token $t$, después de restar las retiradas de tesorería.
 - $B_{\text{disponible}}(u,t)$: saldo disponible del usuario $u$ para el token $t$.
+- $G(t)$ y $L(t)$: garantía bloqueada y caja libre, respectivamente, en el token $t$.
+- $X(t)$: excedente de transferencias directas sin atribuir, medido por esas entradas. Un déficit o un descuadre de otra partida no se puede compensar ajustando el excedente. En las pruebas se reconstruye X desde los envíos directos conocidos y se contrasta con el saldo final. Calcular X por diferencia y usar esa misma diferencia para verificar la igualdad ocultaría errores de contabilización.
 
 ### Invariante `INV-02` - Consistencia Contable
 
@@ -103,7 +107,7 @@ B_{\text{totalDisponible}}(t)
 **Leyenda:**
 
 - $T$: conjunto de tokens admitidos.
-- $U$: conjunto de usuarios registrados en Veyra.
+- $U$: conjunto de direcciones de cuenta, incluidas las que reciben su primer abono.
 - $B_{\text{totalDisponible}}(t)$: saldo disponible total del token $t$ registrado por Veyra.
 - $B_{\text{disponible}}(u,t)$: saldo disponible del usuario $u$ para el token $t$.
 
@@ -180,7 +184,7 @@ $$
 **Leyenda:**
 
 - $O_{\text{EC01}}$: conjunto de operaciones de depósito y retirada completadas correctamente.
-- $U$: conjunto de usuarios registrados en Veyra.
+- $U$: conjunto de direcciones de cuenta, incluidas las que reciben su primer abono.
 - $T$: conjunto de tokens admitidos.
 - $o$: operación de depósito o retirada ejecutada.
 - $u_o$: usuario que realiza la operación $o$.
@@ -213,7 +217,7 @@ $$
 
 - $O_{\text{EC01}}$: conjunto de operaciones de depósito y retirada completadas correctamente.
 - $R_{\text{EC01}}$: conjunto de operaciones de retirada completadas correctamente.
-- $U$: conjunto de usuarios registrados en Veyra.
+- $U$: conjunto de direcciones de cuenta, incluidas las que reciben su primer abono.
 - $T$: conjunto de tokens admitidos.
 - $o$: operación de depósito o retirada ejecutada.
 - $r$: operación de retirada ejecutada.
@@ -227,7 +231,7 @@ $$
 
 ### Invariante `INV-07` - Integridad de Depósitos
 
-En `EC-01`, los tokens enviados directamente al contrato fuera del procedimiento de depósito no generan saldos disponibles para ningún usuario. Toda acreditación de saldo disponible debe venir de un depósito válido y registrado.
+Una transferencia ERC-20 directa fuera del depósito autorizado nunca acredita saldo disponible. En EC-01, un abono por depósito exige recepción efectiva y registro. Un pago recibido (EC-02), un reembolso del fondo (EC-04), el desembolso de un préstamo (EC-05) y una garantía liberada o adjudicada (EC-06/07) son abonos internos autorizados con contrapartida. Cada uno actualiza el saldo individual y el total disponible por token según sus movimientos, sin registrar un nuevo depósito.
 
 Para cada transferencia de tokens recibida fuera del procedimiento de depósito, los saldos disponibles de todos los usuarios para ese token permanecen inalterados.
 
@@ -242,7 +246,7 @@ $$
 **Leyenda:**
 
 - $E_{\text{externas}}$: conjunto de transferencias de tokens recibidas directamente por el contrato fuera del procedimiento autorizado de depósito.
-- $U$: conjunto de usuarios registrados en Veyra.
+- $U$: conjunto de direcciones de cuenta, incluidas las que reciben su primer abono.
 - $T$: conjunto de tokens admitidos.
 - $e$: transferencia externa de tokens no registrada como depósito.
 - $u$: usuario cuyo saldo disponible se comprueba.
@@ -275,12 +279,12 @@ Los siguientes casos describen el comportamiento esperado de `EC-01` y sirven de
 | `CL-10` | Retirada cuyo importe bruto coincide exactamente con el saldo disponible. | Puede completarse si cumple el resto de condiciones. El saldo disponible queda a cero y el usuario recibe el neto, con la comisión contabilizada por separado. | `INV-02`, `INV-04` |
 | `CL-11` | Comisión igual a cero. | El neto coincide con el bruto. No aumenta el saldo de ingresos del protocolo. | `INV-04` |
 | `CL-12` | Comisión superior al importe bruto. | Se rechaza la retirada. No se transfiere un neto negativo ni se cobra una comisión parcial. | Validaciones, `INV-04` |
-| `CL-13` | Comisión exactamente igual al importe bruto. | La condición actual permite este límite: el neto es cero y todo el importe bruto se registra como comisión. El saldo disponible disminuye por el bruto y el saldo real del contrato no disminuye. | `INV-04` |
+| `CL-13` | Frontera matemática de retirada con comisión igual al bruto. | El neto sería cero y la comisión absorbería el bruto. Es una prueba de conservación con parámetros preparados. Con las tarifas de la instancia de referencia cualquier bruto positivo deja un neto positivo. | `INV-04` |
 | `CL-14` | El cálculo de la comisión produce una fracción de la unidad mínima del token. | Se aplica una única regla de redondeo definida en `EC-03`. El neto se obtiene como bruto menos esa comisión entera; no se redondean el neto y la comisión de forma independiente. | `INV-04` |
 | `CL-15` | Una retirada se divide en varias retiradas pequeñas. | Cada operación conserva exactamente su importe bruto. La suma de las comisiones debe corresponder a la regla de cálculo y redondeo por operación; no se presupone que coincida con la comisión de una única retirada grande. | `EC-03`, `INV-04` |
 | `CL-16` | La transferencia de salida falla después de calcular la comisión o actualizar provisionalmente un saldo. | Se revierte toda la retirada. No permanecen el descuento, la comisión ni una transferencia definitiva de esa operación. | Atomicidad, `INV-04` |
 | `CL-17` | El plan cambia o caduca antes de ejecutarse la retirada. | Se aplica el plan vigente al ejecutar la operación, según `EC-03`. La comisión utilizada para el neto y para su registro es la misma. Si no puede resolverse una configuración válida, se rechaza la operación. | `EC-03`, `INV-04` |
-| `CL-18` | Un importe o un cálculo excede el rango de representación elegido para la implementación. | Se rechaza la operación en lugar de truncar, desbordar o ajustar silenciosamente los saldos. | `INV-02`, `INV-03`, `INV-04` |
+| `CL-18` | Un saldo o resultado final de depósito o retirada quedaría fuera de rango. | Se revierte íntegramente. Si solo el producto previo a dividir la comisión excede 256 bits, se usa precisión suficiente para obtener el resultado entero correcto. | `INV-02`, `INV-03`, `INV-04` |
 | `CL-19` | Retirada parcial o total cuando otros usuarios también tienen saldo del mismo token. | El saldo del usuario y el total disponible disminuyen por el importe bruto; los saldos ajenos permanecen iguales. La suma de saldos individuales sigue coincidiendo con el total. | `INV-02`, `INV-04`, `INV-05` |
 | `CL-20` | Varias retiradas correctas generan ingresos para un mismo token. | En cada operación se registra exactamente su comisión. El incremento acumulado de ingresos es la suma de las comisiones efectivamente cobradas, sin duplicaciones ni mezcla con los ingresos de otro token. | `INV-04`, `EC-08` |
 | `CL-21` | Una retirada correcta con comisión positiva transfiere un importe neto al usuario. | El saldo disponible del usuario y el total disminuyen por el bruto; el saldo custodiado disminuye por el neto y los ingresos retenidos aumentan por la comisión. El bruto coincide con la suma de neto y comisión. | `INV-01`, `INV-02`, `INV-04` |
@@ -312,7 +316,7 @@ Los casos siguientes complementan los anteriores. Se comprueban por separado par
 | `CL-35` | `INV-01` | Los ingresos retenidos igualan la custodia y no hay saldos disponibles. | El respaldo disponible para usuarios es cero. Los ingresos no se tratan como fondos retirables por usuarios y se comprueban también las demás reservas. |
 | `CL-36` | `INV-01` | Los ingresos contabilizados superan la custodia. | Se detecta un estado de respaldo inválido; el cálculo no debe presentar un resultado válido por desbordamiento o subdesbordamiento. No se infiere un mecanismo de recuperación. |
 | `CL-37` | `INV-01` | La custodia menos ingresos supera la suma disponible en exactamente una unidad mínima o en una cantidad mayor. | La desigualdad se cumple; el excedente no se acredita automáticamente. Se comprueba por separado la cobertura de otras reservas. |
-| `CL-38` | `INV-01` | Una retirada parte de respaldo exacto, con comisión cero, positiva o igual al bruto. | Si se completa y se cumplen las demás condiciones, el respaldo y la suma disponible disminuyen por el mismo bruto; la igualdad se conserva. El neto cero sigue sujeto al límite de `CL-10`. |
+| `CL-38` | `INV-01` | Retirada desde respaldo exacto, con comisión cero o positiva. | La custodia baja por el neto, los ingresos retenidos suben por la comisión y el disponible baja por el bruto. La frontera de neto cero se describe en `CL-13`. |
 | `CL-39` | `INV-02` | Total registrado menor o mayor que la suma individual, incluida una diferencia de una unidad mínima. | Se detecta inconsistencia contable. Una operación fallida no la oculta ni modifica; la reparación del estado no está definida en `EC-01`. |
 | `CL-40` | `INV-02` | El último saldo disponible de un token se retira por completo. | El saldo del usuario y el total de ese token quedan a cero si no existen otros saldos disponibles; el total del otro token no cambia. |
 | `CL-41` | `INV-02` | El saldo individual o el total está en el máximo representable, o a una unidad de él, antes de un depósito. | Si el resultado exacto cabe, y se cumplen las demás condiciones, ambos aumentan por lo recibido; si cualquiera no cabe, se revierte todo el depósito. |
@@ -338,9 +342,9 @@ Los casos siguientes complementan los anteriores. Se comprueban por separado par
 
 Para cubrir combinaciones sin enumerar cada secuencia individual, ejecutar las clases anteriores con cada token admitido; con uno y varios usuarios; con saldos iniciales cero y positivos; y con operaciones aisladas y secuencias. Aplicar los límites de una unidad mínima y del máximo representable cuando sean válidos para la configuración. En cada transición completada comprobar las siete invariantes aplicables; en cada transición rechazada comparar el estado con el inmediatamente anterior. Los estados inconsistentes se usan para detectar fallos y no como premisa de que una operación normal pueda corregirlos.
 
-**Parámetros que se concretarán en la configuración y en EC-03:** los valores mínimos de depósito por token, las tasas de comisión de cada plan y el sentido del redondeo. Estos valores no se fijan en EC-01; deben quedar definidos antes de implementar los casos que dependan de ellos.
+Los mínimos por token, las comisiones de cada plan y el redondeo están recogidos en la [configuración de Anvil](../economic.md). El mínimo de referencia es cero y la primera cantidad válida es una unidad del token.
 
-La regla vigente de depósito es estricta: importe mayor que el mínimo. La regla vigente de retirada permite una comisión igual al bruto. Cambiar cualquiera de estos límites requiere actualizar conjuntamente las validaciones y sus casos límite.
+El depósito exige superar el mínimo. La validación de retirada admite por conservación una comisión igual al bruto. Las tarifas de referencia siempre producen una comisión inferior al bruto positivo.
 
 La eventual recuperación de excedentes recibidos por transferencias directas no forma parte de EC-01. Esta cadena no concede al administrador un permiso para retirarlos ni los convierte automáticamente en ingresos del protocolo.
 

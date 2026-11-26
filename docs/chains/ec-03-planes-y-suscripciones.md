@@ -6,7 +6,7 @@ La cadena económica `EC-03` gestiona los planes de las cuentas de Veyra, la con
 
 El objetivo de esta cadena es determinar el plan vigente de cada cuenta y proporcionar sus condiciones a las operaciones que dependen de él. También gestiona la contratación y la renovación manual del plan de pago, así como el registro de las cuotas efectivamente cobradas como ingresos del protocolo.
 
-En `v0.1.0` se contemplan un plan básico y un plan de pago. El plan de pago tiene una duración fija, caducidad y renovación manual. Los importes, las condiciones concretas y las reglas de transición que aún no están definidos deben establecerse antes de implementar los comportamientos que dependen de ellos.
+La v0.1.0 contempla un plan básico y un plan de pago de duración fija y renovación manual.
 
 > Tokens permitidos: [tokens](../tokens.md)
 
@@ -16,19 +16,19 @@ En esta cadena intervienen los siguientes actores:
 
 - El **usuario** consulta el plan de su cuenta y solicita la contratación, renovación o cambio de plan que esté permitido.
 - El **contrato de planes de Veyra** valida las solicitudes, mantiene la información de la suscripción y permite resolver las condiciones del plan vigente.
-- El **administrador** configura las condiciones y parámetros autorizados de los planes. Esta función no le concede permiso para mover fondos de usuarios ni modificar arbitrariamente sus saldos o suscripciones.
+- El **administrador** fija las condiciones del despliegue. La configuración de tarifas es inmutable en esa instancia.
 - Las cadenas consumidoras, como **`EC-01` y `EC-02`**, consultan las condiciones aplicables al ejecutar operaciones sujetas a un plan.
 - La cadena de **ingresos del protocolo `EC-08`** contabiliza las cuotas efectivamente cobradas, separadas de los saldos de los usuarios y del patrimonio del fondo.
 
 ## Variables y Estado Contable
 
-Para cada cuenta, Veyra necesita identificar el plan que le corresponde y la información necesaria para determinar si una suscripción de pago está vigente o ha caducado. Esta información incluye la fecha de inicio y la fecha de caducidad de cada periodo contratado o renovado, según las reglas de vigencia que se definan.
+Cada cuenta tiene un plan efectivo. Los periodos de pago registran su inicio incluido y su fin excluido.
 
-La configuración de cada plan comprende las condiciones aplicables a las operaciones que dependen de él, incluidas las comisiones de retirada y de pago. Las tasas, los importes, las unidades, los límites y las reglas de redondeo están pendientes de concretar.
+Las tarifas de retirada, pago, apertura e interés figuran en la [configuración de referencia](../economic.md).
 
 Para cada cuota efectivamente cobrada se debe poder identificar la cuenta, el importe, el token y el periodo de suscripción al que corresponde. La cuota cobrada se registra como ingreso del protocolo en `EC-08`; una cuota no cobrada no se contabiliza como ingreso.
 
-La fuente de fondos para abonar la cuota y el token o tokens admitidos para ese pago están pendientes de definición. Si se utiliza el saldo disponible de la cuenta, el cargo debe reflejarse también en el total disponible registrado para ese token, en coherencia con `EC-01`.
+La cuota se cobra del disponible propio en MockUSD. Disminuyen el saldo individual y el total disponible por la cuota y aumentan los ingresos retenidos en el mismo importe.
 
 Los fondos bloqueados por garantías u otras obligaciones, las participaciones del fondo de liquidez y las deudas de los prestatarios son estados asociados que `EC-03` no modifica al gestionar una suscripción.
 
@@ -36,9 +36,9 @@ Los fondos bloqueados por garantías u otras obligaciones, las participaciones d
 
 ### Plan Básico
 
-El plan básico forma parte del alcance de `v0.1.0`. Sus condiciones concretas, su posible precio y las circunstancias en las que se asigna a una cuenta están pendientes de definición.
+Toda cuenta dispone del plan básico gratuito mientras no esté en un periodo de pago vigente.
 
-Una operación que dependa del plan debe utilizar las condiciones del plan que corresponda a la cuenta en el momento definido para esa operación. No se presupone que una suscripción de pago caducada se convierta automáticamente en plan básico hasta que se establezca esa transición.
+La consulta del plan se resuelve con el tiempo del bloque de ejecución.
 
 ### Contratación del Plan de Pago
 
@@ -46,27 +46,27 @@ El usuario solicita contratar el plan de pago para su cuenta. Veyra comprueba qu
 
 Si la contratación se completa, se registra el periodo de suscripción de duración fija, se aplican las condiciones del plan de pago durante su vigencia y la cuota efectivamente cobrada se contabiliza como ingreso del protocolo en `EC-08`.
 
-La fuente del cobro, el token, el importe, el instante de inicio y los límites exactos del periodo deben definirse antes de implementar este flujo.
+La contratación desde el básico cobra 10 MockUSD e inicia un periodo de 30 días en el bloque de ejecución.
 
 ### Renovación Manual
 
-El usuario solicita renovar su suscripción de pago. Veyra valida la solicitud, las condiciones vigentes para la renovación y el cobro de la cuota que corresponda.
+El titular que ya tuvo una suscripción puede renovarla manualmente, tanto durante su vigencia como después de caducar. Una cuenta que nunca ha contratado inicia su primer periodo mediante contratación.
 
 Si la renovación se completa, se registra el nuevo periodo y se contabiliza la cuota efectivamente cobrada en `EC-08`. No hay renovación ni cobro automático por el mero transcurso del tiempo.
 
-Quedan pendientes las reglas para renovar antes o después de la caducidad, el momento desde el que se cuenta el nuevo periodo y el tratamiento del tiempo que pudiera quedar de una suscripción vigente.
+Al renovar antes de caducar, el periodo adicional empieza al final del ya pagado. Desde la caducidad comienza en el instante de la nueva operación. Cada periodo exige otra cuota íntegra.
 
 ### Cambio de Plan
 
-El usuario puede solicitar un cambio de plan cuando la transición esté permitida por las reglas que se definan. Veyra debe identificar el plan anterior y el nuevo, las condiciones aplicables y cualquier cuota o ajuste que corresponda antes de completar el cambio.
+El paso de básico a pago se ejecuta al contratar. El retorno a básico se produce al terminar el último periodo pagado.
 
-Están pendientes de definición las transiciones permitidas, su momento de efecto, el tratamiento del tiempo ya pagado y la existencia o no de reembolsos, prorrateos o cargos adicionales. No se presupone ninguna de estas opciones.
+La versión excluye la cancelación anticipada, el prorrateo y los reembolsos.
 
 ### Caducidad y Consulta de Condiciones
 
-Una suscripción de pago tiene un periodo de vigencia limitado. Al consultar el plan de una cuenta, Veyra debe tener en cuenta su caducidad conforme a la regla temporal que se defina, sin suponer una renovación automática.
+La vigencia cumple `inicio ≤ tiempo del bloque < fin`. A partir de fin se aplican las condiciones básicas salvo que haya un periodo renovado vigente.
 
-El comportamiento posterior a la caducidad, incluido el plan aplicable y si se necesita una operación explícita para actualizar el estado registrado, está pendiente de definición. Mientras no pueda resolverse una configuración válida para una operación que depende del plan, esa operación debe rechazarse conforme a las reglas documentadas en `EC-01` y `EC-02`.
+La consulta resuelve la caducidad por tiempo sin exigir una transacción de mantenimiento.
 
 Las condiciones de los préstamos ya abiertos que el README fija en su apertura, como la tasa de interés y la comisión de apertura, no se modifican retroactivamente por un cambio, renovación o caducidad del plan.
 
@@ -77,7 +77,7 @@ Las condiciones de los préstamos ya abiertos que el README fija en su apertura,
 - El usuario debe solicitar la operación para su propia cuenta; la administración de planes no concede acceso a fondos o suscripciones ajenos.
 - El plan solicitado, su duración y las condiciones necesarias para la operación deben estar definidos y ser válidos para la transición solicitada.
 - La contratación o renovación del plan de pago requiere una solicitud del usuario y el cobro de la cuota que corresponda conforme a la configuración aplicable.
-- La fuente de fondos y el token utilizado para la cuota deben estar permitidos por las reglas que se definan. Si se utiliza saldo disponible, debe cubrir el cargo y no pueden emplearse fondos bloqueados ni saldos de terceros.
+- Solo puede cargarse el saldo disponible de MockUSD de la cuenta titular.
 - Solo se registra como ingreso la cuota efectivamente cobrada. El importe cobrado, el token y el periodo deben poder asociarse a la operación.
 - El cálculo del periodo, los importes y los saldos resultantes deben poder representarse sin desbordamientos, subdesbordamientos ni truncamientos silenciosos.
 - Si falla una validación, el cobro o una actualización necesaria, la contratación o renovación debe revertirse por completo; no deben permanecer cambios parciales de suscripción, cobro o ingreso.
@@ -85,37 +85,29 @@ Las condiciones de los préstamos ya abiertos que el README fija en su apertura,
 ### Validaciones de Cambio y Consulta del Plan
 
 - Un cambio solo puede completarse si la transición solicitada está permitida y sus condiciones económicas y temporales están definidas.
-- La consulta debe distinguir la información registrada de la vigencia efectiva según la regla de caducidad que se establezca. Una suscripción caducada no debe tratarse como vigente por el mero hecho de conservar datos almacenados.
+- El plan se resuelve al tiempo del bloque. Con el periodo caducado se aplica el básico salvo renovación vigente.
 - Las operaciones sujetas al plan deben utilizar las condiciones que correspondan al momento de ejecución, salvo que la propia operación tenga condiciones fijadas previamente, como las del préstamo al abrirse.
 - Ninguna operación de `EC-03` puede modificar saldos bloqueados, participaciones del fondo o deudas para completar una contratación, renovación o cambio.
 
-### Restricciones Pendientes de Definición
+### Restricciones del MVP
 
-- El precio y las condiciones de cada plan, la duración fija del plan de pago y las reglas de inicio, caducidad y cómputo temporal.
-- La asignación del plan básico, su posible precio y el plan aplicable tras la caducidad del plan de pago.
-- La fuente de fondos y el token o tokens admitidos para el cobro de cuotas, así como las condiciones de autorización del cobro.
-- Las renovaciones anticipadas o posteriores a la caducidad y el tratamiento del tiempo restante.
-- Las transiciones permitidas entre planes, su momento de efecto y los posibles reembolsos, prorrateos o cargos adicionales.
-- Las tasas y reglas de cálculo y redondeo aplicables por plan y operación, incluidos los límites ya documentados por cada cadena consumidora.
-- El efecto de los cambios de configuración sobre suscripciones vigentes y operaciones posteriores, respetando las condiciones previamente fijadas para préstamos abiertos.
-
-Estas decisiones deben concretarse antes de implementar los comportamientos que dependen de ellas.
+La contratación exige plan básico efectivo. Con historial caducado, contratar de nuevo o renovar produce un periodo desde el bloque actual por una sola cuota por operación. Durante un periodo vigente solo cabe renovar, añadiendo 30 días al final del último periodo pagado. Dos renovaciones manuales sucesivas con saldo suficiente compran dos periodos contiguos. Cada préstamo conserva las condiciones de su apertura.
 
 ## Invariantes y Propiedades
 
-Las siguientes propiedades son propuestas para `EC-03`. Describen los efectos atribuibles a cada operación y no deciden los parámetros ni las transiciones que siguen pendientes. Una variación de estado se calcula como valor posterior menos valor anterior.
+Las siguientes propiedades se aplican a cada transición. Las variaciones son diferencias entre el estado posterior y el anterior.
 
-Las fórmulas que se refieren a cuotas se aplican a la cuota efectivamente cobrada, en su propio token y sin incluir posibles reembolsos u otros ajustes todavía no definidos. La fuente de fondos para su cobro sigue pendiente; cuando se utilice el saldo disponible de la cuenta, se aplican además las relaciones con el total disponible de `EC-01`.
+La cuota se reclasifica de saldo disponible de MockUSD a ingreso ya cobrado. La custodia física permanece constante.
 
 ### Invariante `INV-01` - Unicidad del Plan Activo
 
 En `EC-03`, una cuenta no puede tener simultáneamente más de un plan activo. La existencia de registros históricos, periodos futuros o datos de una suscripción caducada no implica que esos planes estén activos.
 
-Para cada cuenta y cada instante, el número de planes activos es como máximo uno. Esta propiedad no decide qué plan corresponde tras la caducidad ni obliga a que siempre exista uno activo.
+Para cada cuenta e instante hay exactamente un plan efectivo. El básico se resuelve por defecto incluso antes de que la cuenta realice su primera operación.
 
 ```math
 \forall u \in U,\quad \forall \tau:\quad
-\left|\{q \in Q : \operatorname{activo}(u,q,\tau)\}\right| \leq 1
+\left|\{q \in Q : \operatorname{activo}(u,q,\tau)\}\right| = 1
 ```
 
 **Leyenda:**
@@ -123,14 +115,14 @@ Para cada cuenta y cada instante, el número de planes activos es como máximo u
 - $U$: conjunto de cuentas de Veyra.
 - $Q$: conjunto de planes admitidos.
 - $\tau$: instante en el que se comprueba la vigencia.
-- $\operatorname{activo}(u,q,\tau)$: indica que el plan $q$ está efectivamente activo para la cuenta $u$ en ese instante, según las reglas de vigencia que se definan.
+- $\operatorname{activo}(u,q,\tau)$: el plan efectivo de la cuenta en ese instante, aplicando el intervalo de vigencia.
 - $|\cdot|$: número de elementos del conjunto.
 
 ### Invariante `INV-02` - Integridad de Suscripciones
 
 En `EC-03`, un periodo del plan de pago solo puede activarse si la cuota correspondiente ha sido cobrada correctamente y la suscripción se ha registrado. Una solicitud o un cobro fallido no activa el periodo.
 
-Para cada periodo de pago activo, existe una operación completada que identifica la cuenta, el periodo y su cuota efectivamente cobrada. Esta propiedad no presupone el token ni la fuente del cobro.
+Cada periodo de pago se vincula a un único cobro de su titular en MockUSD.
 
 ```math
 \forall u \in U,\quad \forall s \in S,\quad \forall \tau:\quad
@@ -143,12 +135,12 @@ Para cada periodo de pago activo, existe una operación completada que identific
 
 - $U$: conjunto de cuentas de Veyra.
 - $S$: conjunto de periodos registrados del plan de pago.
-- $O$: conjunto de contrataciones, renovaciones o cambios completados que puedan activar un periodo de pago según las reglas que se definan.
+- $O$: contrataciones y renovaciones manuales confirmadas.
 - $\operatorname{activoPago}(u,s,\tau)$: indica que el periodo $s$ de la cuenta $u$ está activo en el instante $\tau$.
 - $\operatorname{vincula}(o,u,s)$: indica que la operación completada $o$ registra el periodo $s$ para la cuenta $u$.
-- $\operatorname{cuotaCobrada}(o,s)$: indica que la cuota exigible para ese periodo se ha cobrado correctamente y está asociada a la operación. La admisibilidad de una cuota cero permanece pendiente de definición.
+- $\operatorname{cuotaCobrada}(o,s)$: la cuota positiva del periodo se cobró del disponible propio de MockUSD.
 
-La duración, los límites temporales y los periodos futuros o renovados deben cumplir la regla de vigencia que se defina; un cobro por sí solo no determina el instante de activación.
+Un periodo renovado por anticipado solo entra en vigor cuando termina el anterior.
 
 ### Invariante `INV-03` - Conservación de Cuotas
 
@@ -170,7 +162,7 @@ K_{\text{usuario}}(c) = A_{\text{cuota}}(c)
 - $A_{\text{cuota}}(c)$: importe efectivamente cobrado de la cuota $c$.
 - $\Delta I_{\text{protocolo}}(t_c,c)$: incremento de los ingresos retenidos del protocolo en ese token atribuible a la cuota $c$.
 
-Si la cuota se cobra del saldo disponible de la cuenta, tanto su saldo individual como el total disponible del token disminuyen por la cuota. La variación de custodia depende de la fuente de cobro que se defina; no se presupone una transferencia externa cuando se emplea saldo ya custodiado.
+El cobro reduce por igual el disponible individual y el total disponible de MockUSD. Aumenta por ese importe el ingreso retenido.
 
 ### Invariante `INV-04` - Aplicación Correcta de Comisiones
 
@@ -193,7 +185,7 @@ Para cada operación cuyo plan se determina al ejecutarse, la tasa utilizada coi
 - $\operatorname{tasaUtilizada}(o)$: tasa aplicada a la operación.
 - $\operatorname{tasaVigente}(u_o,\operatorname{tipo}(o),\tau_o)$: tasa aplicable según el plan efectivamente vigente y la configuración correspondiente.
 
-Esta propiedad no fija las tasas, las comisiones resultantes ni el redondeo. Las condiciones fijadas previamente para préstamos abiertos se rigen por `INV-07` y no se recalculan por un cambio posterior de plan.
+Las comisiones usan la tarifa del plan al ejecutar la operación. La tasa del préstamo se conserva desde su apertura.
 
 ### Invariante `INV-05` - Caducidad de Planes
 
@@ -212,10 +204,10 @@ Para cada cuenta y periodo de pago, si el periodo está caducado en el instante 
 - $U$: conjunto de cuentas de Veyra.
 - $S$: conjunto de periodos registrados del plan de pago.
 - $\tau$: instante de consulta o aplicación de condiciones.
-- $\operatorname{caducado}(u,s,\tau)$: indica que el periodo $s$ de la cuenta $u$ ha caducado según la regla temporal que se defina.
+- $\operatorname{caducado}(u,s,\tau)$: el instante de consulta es igual o posterior al fin del periodo.
 - $\operatorname{beneficioPor}(u,s,\tau)$: indica que se aplica un beneficio exclusivo por la vigencia de ese periodo concreto.
 
-Otro periodo de pago válidamente renovado puede proporcionar sus propios beneficios. La transición posterior a la caducidad y el tratamiento exacto del instante límite siguen pendientes.
+El instante de caducidad pertenece al siguiente periodo renovado, si existe. En otro caso ya rige el básico.
 
 ### Invariante `INV-06` - Integridad de Renovaciones
 
@@ -237,7 +229,7 @@ Para cada renovación completada existe un periodo identificado y una cuota cobr
 - $\operatorname{vincula}(r,u_r,s)$: indica que la renovación $r$ registra el periodo $s$ para esa cuenta.
 - $\operatorname{cuotaCobrada}(r,s)$: indica que la cuota exigible para ese periodo se ha cobrado correctamente y está asociada a la renovación.
 
-El comienzo del periodo renovado, el tratamiento del tiempo restante y la posibilidad de renovar antes o después de la caducidad permanecen pendientes. La relación anterior no exige que el nuevo periodo comience inmediatamente.
+La renovación añade 30 días a partir de la fecha más tardía entre la ejecución y el fin del periodo pagado.
 
 ### Invariante `INV-07` - Consistencia de Cambios de Plan
 
@@ -262,7 +254,7 @@ Esta propiedad no impide los cambios propios del préstamo que correspondan a ot
 
 ### Invariante `INV-08` - Aislamiento de Suscripciones
 
-En `EC-03`, una operación sobre la suscripción de una cuenta no altera la suscripción ni el plan efectivo de otra cuenta por el hecho de realizarse. Los cambios generales de configuración autorizados se evalúan por separado y sus efectos permanecen pendientes de definición.
+La transición de una cuenta solo afecta a su propia suscripción.
 
 Para cada operación completada sobre una cuenta, los datos de suscripción y las condiciones de plan de cualquier otra cuenta permanecen inalterados por esa operación.
 
@@ -301,66 +293,66 @@ S_{\text{despues}}(f)=S_{\text{antes}}(f)
 
 Los siguientes casos sirven de referencia para futuras pruebas de `EC-03`. Las referencias `INV-01` a `INV-09` corresponden a las invariantes de esta cadena. En una contratación, renovación o cambio fallido se revierten sus efectos, incluidos cobros, ingresos, cambios de suscripción y registros definitivos.
 
-Cuando el resultado depende de una decisión pendiente, el caso indica qué debe cumplirse para cada opción sin elegirla anticipadamente. Los importes se expresan en unidades mínimas del token que se autorice para el cobro.
+Los importes de suscripción se expresan en unidades mínimas de MockUSD.
 
 ### Plan Activo, Contratación y Autorización
 
 | ID | Caso | Resultado esperado | Referencia |
 |---|---|---|---|
-| `CL-01` | Una cuenta todavía no tiene un plan asignado o no puede resolverse su plan. | La asignación inicial está pendiente. No se presupone un plan básico activo; una operación que requiera condiciones de plan y no pueda resolverlas se rechaza conforme a su cadena. | `INV-01`, `INV-04` |
-| `CL-02` | La cuenta tiene un plan básico activo y contrata el plan de pago. | Si la transición se permite y se completa, el periodo de pago queda asociado a su cuota cobrada. En ningún instante se consideran activos simultáneamente ambos planes. | `INV-01`, `INV-02`, `INV-03` |
-| `CL-03` | Una cuenta con plan de pago vigente solicita otra contratación del mismo plan. | La admisibilidad y el tratamiento del periodo previo están pendientes. Si se permite, cada periodo activado debe tener su cobro y mantenerse la unicidad del plan activo. | `INV-01`, `INV-02`, `INV-06` |
+| `CL-01` | Una cuenta todavía no tiene un plan asignado o no puede resolverse su plan. | Sin periodo de pago vigente rige el básico. Una configuración inválida de tarifas impide ejecutar la operación dependiente. | `INV-01`, `INV-04` |
+| `CL-02` | La cuenta tiene un plan básico activo y contrata el plan de pago. | Al completarse la contratación, el periodo de pago queda asociado a su cuota cobrada. En ningún instante se consideran activos simultáneamente ambos planes. | `INV-01`, `INV-02`, `INV-03` |
+| `CL-03` | Una cuenta con plan de pago vigente solicita otra contratación del mismo plan. | Una segunda contratación se rechaza. La extensión de un periodo vigente se solicita mediante renovación manual. | `INV-01`, `INV-02`, `INV-06` |
 | `CL-04` | Un usuario o el administrador intenta contratar, renovar o cambiar la suscripción de otra cuenta. | Se rechaza la solicitud; la administración de planes no concede acceso a suscripciones o fondos ajenos. | Validaciones, `INV-08`, `INV-09` |
 | `CL-05` | Se solicita un plan inexistente, no configurado o una transición no permitida. | Se rechaza sin cobro, ingreso ni cambio definitivo de suscripción. | Validaciones, `INV-01`, `INV-09` |
 | `CL-06` | La cuota exigible no puede cobrarse o el cobro falla. | No se activa ni registra definitivamente el nuevo periodo y no se reconoce ingreso por esa cuota; se revierte el intento completo. | `INV-02`, `INV-03`, `INV-09` |
 | `CL-07` | Se registra una solicitud o se inicia un cobro, pero la contratación no se completa. | No se considera activo el nuevo periodo por esos pasos provisionales; el estado afectado se revierte. | `INV-02`, `INV-09` |
 | `CL-08` | El cobro se completa, pero el periodo registrado pertenece a otra cuenta o no corresponde a la operación. | La contratación no puede completarse como válida: cuota, cuenta, operación y periodo deben quedar vinculados correctamente; un fallo revierte sus efectos. | `INV-02`, `INV-03`, `INV-08`, `INV-09` |
-| `CL-09` | Un periodo está pagado y registrado, pero su inicio es futuro. | Su eventual admisibilidad depende de la regla temporal. Si se permite, el cobro no adelanta por sí solo la activación ni convierte en activos dos planes. | `INV-01`, `INV-02` |
+| `CL-09` | Un periodo está pagado y registrado, pero su inicio es futuro. | Es admisible como renovación anticipada. Los beneficios de ese periodo comienzan en su fecha de inicio. | `INV-01`, `INV-02` |
 | `CL-10` | Se conservan registros históricos de varias suscripciones. | Los registros anteriores o futuros no se cuentan automáticamente como planes activos. La vigencia efectiva se resuelve por separado. | `INV-01`, `INV-05` |
 
 ### Cuotas, Fondos e Ingresos
 
 | ID | Caso | Resultado esperado | Referencia |
 |---|---|---|---|
-| `CL-11` | La configuración permite una cuota de importe cero. | Su admisibilidad y el significado de cobro correcto para importe cero están pendientes. Si se admite, debe existir el vínculo exigido con el periodo y no se genera un ingreso positivo. | `INV-02`, `INV-03`, `INV-06` |
+| `CL-11` | Se intenta activar un periodo de pago con cuota cero. | Se rechaza. La cuota del plan de pago es positiva. El básico se obtiene sin cobro. | `INV-02`, `INV-03`, `INV-06` |
 | `CL-12` | La cuota es positiva y se cobra correctamente. | El importe cargado a los fondos autorizados coincide con el cobrado y con el incremento de ingresos retenidos, una sola vez y en el mismo token. | `INV-03` |
-| `CL-13` | Se intenta cobrar con un token o una fuente de fondos no permitidos por la configuración aplicable. | Se rechaza sin activar el periodo ni dejar cobro o ingreso definitivo. Los tokens y fuentes admitidos para cuotas siguen pendientes de definición. | Validaciones, `INV-02`, `INV-03`, `INV-09` |
-| `CL-14` | Se permite cobrar desde saldo disponible y este cubre exactamente la cuota. | Si se cumplen las demás condiciones, el cobro puede completarse y el saldo individual queda a cero; el total disponible del token disminuye por la cuota. | `INV-03` |
-| `CL-15` | Se permite cobrar desde saldo disponible y este queda una unidad mínima por debajo de la cuota. | Se rechaza el cobro y se revierte la operación; no se utilizan fondos bloqueados ni saldos de terceros. | Validaciones, `INV-02`, `INV-03`, `INV-09` |
-| `CL-16` | Se permite cobrar desde saldo disponible y el usuario tiene fondos bloqueados, deudas o participaciones del fondo. | Solo se carga el saldo disponible autorizado; esos otros estados no se utilizan ni se modifican para completar la operación. | Validaciones, `INV-03`, `INV-08` |
-| `CL-17` | Se permite una fuente de cobro distinta del saldo disponible. | El cargo a la fuente autorizada y el ingreso deben coincidir con la cuota efectivamente cobrada. El efecto sobre custodia depende de la fuente y del flujo que se definan. | `INV-03` |
+| `CL-13` | Se intenta cobrar con un token o una fuente de fondos no permitidos por la configuración aplicable. | Se rechaza. La cuota se cobra solo del saldo propio de MockUSD. | Validaciones, `INV-02`, `INV-03`, `INV-09` |
+| `CL-14` | Se cobra desde saldo disponible y este cubre exactamente la cuota. | Si se cumplen las demás condiciones, el cobro puede completarse y el saldo individual queda a cero; el total disponible del token disminuye por la cuota. | `INV-03` |
+| `CL-15` | Se cobra desde saldo disponible y este queda una unidad mínima por debajo de la cuota. | Se rechaza el cobro y se revierte la operación; no se utilizan fondos bloqueados ni saldos de terceros. | Validaciones, `INV-02`, `INV-03`, `INV-09` |
+| `CL-16` | Se cobra desde saldo disponible y el usuario tiene fondos bloqueados, deudas o participaciones del fondo. | Solo se carga el saldo disponible autorizado; esos otros estados no se utilizan ni se modifican para completar la operación. | Validaciones, `INV-03`, `INV-08` |
+| `CL-17` | Se intenta usar una fuente distinta del saldo disponible. | Se rechaza sin cobro ni activación. | `INV-03` |
 | `CL-18` | La transferencia o mecanismo de cobro falla, revierte o devuelve un resultado de fallo. | No se considera cobrada la cuota; se revierte la operación completa, sin ingreso ni periodo definitivos. | `INV-02`, `INV-03`, `INV-09` |
 | `CL-19` | La cantidad efectivamente cobrada no coincide con la cuota exigible. | No se da por cumplido el cobro de la cuota completa ni se activa el periodo con un ingreso incorrecto. La operación fallida revierte sus efectos; no se presupone aceptación de pagos parciales. | `INV-02`, `INV-03`, `INV-09` |
 | `CL-20` | Ya existen ingresos retenidos o saldos previos antes del cobro. | La operación atribuye a la cuota solo su propio cargo e incremento de ingresos; los importes previos no se cuentan nuevamente. | `INV-03` |
 | `CL-21` | Varias cuentas pagan cuotas en el mismo token. | Cada cobro queda asociado a su propia cuenta y periodo; el aumento acumulado de ingresos es la suma de las cuotas efectivamente cobradas, cada una una sola vez. | `INV-02`, `INV-03`, `INV-08` |
-| `CL-22` | Se admiten cuotas en distintos tokens. | Condicional a esa configuración: cada cobro e ingreso se contabiliza en su propio token, sin convertir ni sumar unidades de tokens distintos. | `INV-03` |
+| `CL-22` | Se solicita pagar una cuota en MockETH. | Se rechaza sin convertir tokens ni activar el plan. | `INV-03` |
 | `CL-23` | Un importe, ingreso acumulado o resultado de saldo alcanza o excedería el máximo representable. | Si todos los resultados exactos caben y se cumplen las demás condiciones, puede completarse; si alguno no cabe, se revierte la operación sin truncamiento ni desbordamiento. | Validaciones, `INV-03`, `INV-09` |
 
 ### Vigencia, Caducidad y Condiciones del Plan
 
 | ID | Caso | Resultado esperado | Referencia |
 |---|---|---|---|
-| `CL-24` | Se consulta inmediatamente antes, exactamente en y después del instante de caducidad. | Se aplica la regla temporal que se defina para cada instante. El límite exacto permanece pendiente; un periodo ya caducado no proporciona sus beneficios exclusivos. | `INV-01`, `INV-05` |
-| `CL-25` | Un periodo ha caducado, pero sus datos siguen almacenados. | No se considera vigente por esos datos ni proporciona beneficios exclusivos. El plan aplicable después depende de la transición pendiente. | `INV-01`, `INV-05` |
+| `CL-24` | Se consulta inmediatamente antes, exactamente en y después del instante de caducidad. | Antes del fin sigue vigente. En el fin y después rige el básico salvo que exista un periodo renovado que cubra ese instante. | `INV-01`, `INV-05` |
+| `CL-25` | Un periodo ha caducado, pero sus datos siguen almacenados. | Rige el básico salvo que otro periodo pagado esté vigente. | `INV-01`, `INV-05` |
 | `CL-26` | Transcurre el tiempo de vigencia sin que el usuario solicite renovación. | No se produce renovación ni cobro automático. Una vez caducado, el periodo no proporciona sus beneficios exclusivos. | `INV-05`, `INV-06` |
 | `CL-27` | El periodo anterior ha caducado y existe otro periodo de pago válidamente renovado. | El periodo anterior no proporciona beneficios; el nuevo solo los proporciona cuando esté vigente según la regla temporal definida. | `INV-01`, `INV-02`, `INV-05`, `INV-06` |
 | `CL-28` | Una operación consulta el plan antes de un cambio, renovación o caducidad y se ejecuta después. | Si su cadena resuelve el plan al ejecutar, utiliza las condiciones vigentes en ese momento; no se presupone que la consulta anterior las congele. | `INV-04`, `INV-05` |
 | `CL-29` | No puede resolverse una configuración de plan válida para una retirada o un pago. | La operación dependiente se rechaza conforme a `EC-01` o `EC-02`, sin aplicar una tasa inventada ni conservar efectos parciales. | `INV-04`, `INV-05` |
 | `CL-30` | Las condiciones de dos planes o tipos de operación tienen tasas diferentes. | La operación usa la tasa que corresponda a su tipo y al plan vigente de la cuenta; no utiliza la de otro plan o tipo por error. | `INV-04` |
-| `CL-31` | Una tasa o comisión calculada da una fracción de unidad mínima. | Se aplica la regla de cálculo y redondeo que se defina para esa operación y plan, respetando los límites de la cadena consumidora. | `INV-04` |
-| `CL-32` | El administrador cambia una configuración mientras hay suscripciones vigentes. | El efecto sobre suscripciones y operaciones posteriores está pendiente. No se alteran por ello las condiciones fijadas previamente para préstamos existentes. | `INV-04`, `INV-07`, `INV-08` |
+| `CL-31` | Una tasa o comisión calculada da una fracción de unidad mínima. | Se redondea la comisión hacia abajo una vez en la unidad mínima del token. | `INV-04` |
+| `CL-32` | Se intenta cambiar las tarifas de una instancia desplegada. | Las condiciones de la instancia son fijas. Se comprueba que el intento carece de efecto. | `INV-04`, `INV-07`, `INV-08` |
 
 ### Renovaciones y Cambios de Plan
 
 | ID | Caso | Resultado esperado | Referencia |
 |---|---|---|---|
-| `CL-33` | El usuario solicita renovar antes de la caducidad. | Su admisibilidad, inicio y tratamiento del tiempo restante están pendientes. Si se completa, debe haber cuota cobrada y periodo registrado sin vulnerar la unicidad del plan activo. | `INV-01`, `INV-02`, `INV-06` |
-| `CL-34` | El usuario solicita renovar exactamente en la caducidad o después de ella. | Se aplican las reglas temporales y de renovación que se definan. Una renovación completada debe vincular su cuota y periodo; no activa retroactivamente el periodo caducado. | `INV-02`, `INV-05`, `INV-06` |
+| `CL-33` | El usuario solicita renovar antes de la caducidad. | Se cobra la cuota y se añaden 30 días desde la caducidad ya pagada. | `INV-01`, `INV-02`, `INV-06` |
+| `CL-34` | El usuario solicita renovar exactamente en la caducidad o después de ella. | Se cobra la cuota y se inicia un periodo de 30 días en el instante de ejecución. | `INV-02`, `INV-05`, `INV-06` |
 | `CL-35` | La renovación se solicita, pero falla el cobro o el registro del nuevo periodo. | Se revierte el intento. Una suscripción anterior conserva el estado que le corresponda por su propia vigencia; no aparece un nuevo periodo o cobro definitivo. | `INV-06`, `INV-09` |
 | `CL-36` | Se solicitan renovaciones repetidas o mediante una llamada anidada. | Cada renovación completada debe ser manual, autorizada y tener su propia cuota y periodo correctamente vinculados. No se permite cobrar dos veces por una única operación ni crear periodos no respaldados. | `INV-02`, `INV-03`, `INV-06`, `INV-09` |
-| `CL-37` | Una renovación válida registra un periodo que empieza en el futuro. | Si la regla lo permite, se registra y vincula a su cuota; sus beneficios solo se aplican durante su vigencia efectiva. | `INV-01`, `INV-02`, `INV-05`, `INV-06` |
-| `CL-38` | Una cuenta solicita cambiar del plan de pago al básico antes de caducar. | La transición, su fecha de efecto y el tratamiento del tiempo pagado están pendientes. Si se permite, no deben quedar dos planes activos ni aplicarse ajustes no definidos. | `INV-01`, `INV-09` |
-| `CL-39` | Un cambio de plan contempla un reembolso, prorrateo o cargo adicional. | Su existencia y cálculo están pendientes. Si se incorporan, deben definirse sus efectos contables y de autorización antes de ejecutar el flujo; la cuota cobrada no se confunde con el ajuste. | `INV-03`, `INV-09` |
+| `CL-37` | Una renovación válida registra un periodo que empieza en el futuro. | La renovación anticipada registra el siguiente periodo desde el fin anterior. | `INV-01`, `INV-02`, `INV-05`, `INV-06` |
+| `CL-38` | Una cuenta solicita cambiar del plan de pago al básico antes de caducar. | Se rechaza la baja anticipada. El periodo pagado llega a su caducidad. | `INV-01`, `INV-09` |
+| `CL-39` | Se solicita un reembolso, prorrateo o cargo extraordinario. | La operación queda fuera del MVP y no mueve fondos. | `INV-03`, `INV-09` |
 | `CL-40` | La duración configurada, el instante de inicio o el cálculo de caducidad son inválidos o exceden el rango representable. | La operación se rechaza y revierte; no se registra un periodo truncado ni se deja un cobro definitivo. | Validaciones, `INV-02`, `INV-06`, `INV-09` |
 | `CL-41` | Una cuenta cambia, renueva, contrata o deja caducar su plan con un préstamo existente. | La tasa de interés y la comisión de apertura fijadas al abrir el préstamo permanecen inalteradas por esa transición. La evolución propia de la deuda corresponde a su cadena. | `INV-07` |
 | `CL-42` | Una cuenta sin préstamo existente cambia de plan y posteriormente abre uno. | `INV-07` no fija condiciones para un préstamo que aún no existe; la apertura debe usar las condiciones aplicables según las reglas de su cadena en ese momento. | `INV-04`, `INV-07` |
@@ -379,6 +371,6 @@ Cuando el resultado depende de una decisión pendiente, el caso indica qué debe
 
 ### Criterio de Cobertura
 
-Aplicar los casos pertinentes a las transiciones permitidas y a cada fuente y token de cobro que se definan; comprobar cuentas individuales y múltiples, estados previos distintos y límites temporales y numéricos de la configuración. En las operaciones fallidas, comparar los estados afectados con los inmediatamente anteriores al intento. Las condiciones de `EC-01`, `EC-02`, `EC-08` y los préstamos se comprueban aquí solo en lo que depende de `EC-03`.
+Comprobar las transiciones entre básico y de pago para varias cuentas, incluida la renovación temprana, exacta y tardía.
 
-Esta matriz identifica clases de límites y fallos para `EC-03`; no demuestra que estén enumeradas todas las secuencias posibles ni sustituye las pruebas o una verificación formal. Los resultados dependientes de reglas pendientes deben concretarse antes de convertirlos en pruebas ejecutables.
+La matriz sirve para diseñar las pruebas de esta cadena.
