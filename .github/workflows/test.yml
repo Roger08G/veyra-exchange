@@ -1,16 +1,21 @@
-name: CI
+name: Veyra MVP
 
 permissions: {}
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
+env:
+  FOUNDRY_FUZZ_SEED: "0x7665797261"
+
 jobs:
   check:
-    name: Foundry project
-    runs-on: ubuntu-latest
+    name: Contratos y pruebas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -18,18 +23,50 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1
+        with:
+          version: v1.8.3
+          cache: false
+      - run: forge --version && forge fmt --check && forge build --sizes
+      - name: Comprobar descubrimiento de las siete suites
+        run: |
+          forge test --list --json > cache/suites.json
+          for suite in unit sanity integration regression security invariant performance; do
+            jq -e --arg prefix "test/$suite/" 'any(to_entries[]; (.key | startswith($prefix)) and any(.value[]; length > 0))' cache/suites.json
+          done
+      - run: forge test -vvv --fuzz-seed "$FOUNDRY_FUZZ_SEED"
+      - name: Guardar mediciones de gas
+        run: forge test --match-path 'test/performance/*.t.sol' --gas-report --fuzz-seed "$FOUNDRY_FUZZ_SEED" | tee cache/gas.txt
+        shell: bash
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: forge-${{ github.sha }}
+          path: |
+            cache/suites.json
+            cache/gas.txt
+          if-no-files-found: error
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Show Forge version
-        run: forge --version
-
-      - name: Run Forge fmt
-        run: forge fmt --check
-
-      - name: Run Forge build
-        run: forge build --sizes
-
-      - name: Run Forge tests
-        run: forge test -vvv
+  acceptance:
+    name: Aceptación en Anvil
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf # v1
+        with:
+          version: v1.8.3
+          cache: false
+      - run: python3 script/verify/acceptance.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: anvil-${{ github.sha }}
+          path: cache/acceptance/*.json
+          if-no-files-found: warn
