@@ -1,24 +1,46 @@
 # Despliegue local
 
-El objetivo de v0.1.0 es desplegar y repetir el mismo mercado en Anvil. El repositorio parte de la plantilla de Foundry. El script existente despliega `Counter`. El despliegue de Veyra quedará verificable con el siguiente procedimiento cuando existan sus contratos y su script.
+Veyra v0.1.0 se despliega en Anvil con identificador de cadena 31337. El [script de Foundry](../script/deploy/Deploy.s.sol) crea MockUSD, MockETH y la custodia, asigna la emisión de los mocks al administrador y publica el precio inicial de 2 000 MockUSD por MockETH. La tesorería tiene una dirección distinta. Los tokens empiezan con suministro cero. [Configuración económica](./economic.md)
 
-1. Arrancar una instancia limpia de Anvil. Registrar la cadena y las direcciones de administrador, emisor de los tokens de prueba, tesorería y participantes. El escenario principal usa ocho cuentas de usuario distintas: dos proveedores, dos prestatarios, liquidador, emisor y destinatario del pago, y suscriptor. Reservar además cuentas de administración y tesorería. El administrador puede encargarse de emitir los tokens de prueba.
-2. Desplegar los dos ERC-20 y comprobar código, dirección y decimales. Inicializar la custodia una sola vez con esas direcciones, el administrador, la tesorería y los parámetros de referencia. Usar direcciones distintas para ambas funciones y para la custodia, y distintas de cero. Verificar desde la cadena la configuración efectiva y que ambos tokens están habilitados. [Configuración económica](./economic.md)
-3. Publicar el precio inicial desde el administrador. La publicación toma la marca temporal del bloque. Verificar que las reservas, el suministro de participaciones y el número de préstamos activos empiezan a cero.
-4. Emitir tokens de prueba a carteras de los actores. Cada actor autoriza a la custodia y deposita lo que necesite para sus operaciones. Verificar que la emisión en cartera y el depósito produzcan los movimientos previstos.
-5. Ejecutar el [escenario de aceptación](./tests.md) conservando medidas en unidades mínimas de cada token. Tomar el bloque de apertura como origen del reloj de los préstamos. Preparar las transacciones que comparten instante para incluirlas en el mismo bloque en el orden indicado, comprobando el tiempo y los recibos al minar. Repetir desde una instancia limpia.
+## Reproducir la aceptación completa
+
+Desde la raíz del repositorio, con Foundry v1.8.3 (Forge, Cast y Anvil en el PATH), Python 3.10 o superior y el submódulo `lib/forge-std` disponible, ejecutar:
+
+```sh
+python script/verify/acceptance.py
+```
+
+El [ejecutor de aceptación](../script/verify/acceptance.py) arranca cuatro instancias independientes en puertos locales libres, utiliza el mismo script de despliegue en cada una y las cierra al terminar. Repite el [escenario principal y la liquidación con sobrante](./tests.md) dos veces cada uno. Usa la biblioteca estándar de Python y las cuentas desbloqueadas del nodo. Forge compila con la versión de Solidity y el perfil EVM de [foundry.toml](../foundry.toml).
+
+- Verifica en cadena direcciones, roles, configuración de planes y mercado, decimales, activos habilitados, primer precio y estado inicial. La cuenta administradora emite los tokens de prueba en las carteras de los actores. Cada titular autoriza y deposita desde la suya.
+- Desactiva la minería automática después del despliegue. Coloca las operaciones simultáneas en una cola FIFO, mina el bloque y verifica el tiempo y el índice de cada recibo. Para observar el patrimonio justo antes de la liquidación con pérdida, toma una instantánea temporal, ejecuta la devolución y el cambio de precio, lee el patrimonio, recupera la instantánea y confirma el bloque completo con la liquidación.
+- Compara los resultados con los importes esperados en unidades mínimas y con la repetición del mismo escenario. El proceso devuelve un código de error ante una desviación.
+
+Los informes locales se guardan en `cache/acceptance/principal-{1,2}.json` y `cache/acceptance/sobrante-{1,2}.json`. Cada uno contiene el commit y si había trabajo pendiente, versiones, direcciones y huellas del bytecode desplegado, comprobaciones y recibos completos. Los recibos identifican el bloque, la transacción, el gas y los eventos reales de cada paso. El campo `passed` indica si terminó correctamente.
+
+## Desplegar una instancia para uso interactivo
+
+Para conservar una instancia y operar sobre ella, iniciar Anvil en una terminal:
+
+```sh
+anvil --host 127.0.0.1 --port 8545 --chain-id 31337 --hardfork cancun
+```
+
+En una segunda terminal, desde la raíz de Veyra, este comando usa las direcciones públicas de las dos primeras cuentas de Anvil con su configuración por defecto. La primera será administradora y la segunda será tesorería. Si se configuraron otras cuentas, consultar `cast rpc eth_accounts --rpc-url http://127.0.0.1:8545` y sustituir las direcciones.
+
+```sh
+forge script script/deploy/Deploy.s.sol:DeployVeyra --sig "run(address,address)" 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 0x70997970c51812dc3a010c7d01b50e0d17dc79c8 --rpc-url http://127.0.0.1:8545 --sender 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 --unlocked --broadcast --slow
+```
+
+Forge registra las direcciones de creación y los recibos en `broadcast/Deploy.s.sol/31337/run-latest.json`. Se puede verificar el mercado con `cast call DIRECCION_DE_VEYRA "price()(uint256)" --rpc-url http://127.0.0.1:8545`. El entero esperado es 2 000 000 000. Esta instancia permanece disponible mientras siga funcionando el proceso de Anvil.
 
 ## Entrega continua en Anvil
 
-El [workflow actual](../.github/workflows/test.yml) ejecuta formato, compilación con tamaños y pruebas de Forge en pushes, pull requests y ejecuciones manuales. Las etapas siguientes definen la CI/CD que se incorporará a medida que se implementen los contratos y sus pruebas. El destino del MVP es una instancia local y efímera de Anvil.
+El [workflow de GitHub Actions](../.github/workflows/test.yml) utiliza permisos globales vacíos y concede lectura de contenido por trabajo. Las acciones se fijan por revisión, Foundry por versión y forge-std por el commit del submódulo. El checkout descarta las credenciales y las cuentas que firman las transacciones son las de Anvil local.
 
-| Cuándo | Trabajo previsto | Condición para continuar |
+| Ejecución | Validación | Evidencia |
 | --- | --- | --- |
-| En cada cambio de `main` y en cada pull request | Preparar dependencias y versiones fijadas, ejecutar formato y compilación, comprobar tamaño, y correr las suites de unidad, sanity, integración, regresión y seguridad disponibles. | El código compila, los permisos se comportan como especifica la matriz y cada suite declarada para el hito descubre y ejecuta pruebas. |
-| Tras la validación anterior en `main` o en una ejecución manual completa | Ejecutar invariantes con semillas registradas, mediciones de gas y comparación con la referencia del mismo perfil. | Las conciliaciones pasan y las mediciones cumplen los presupuestos publicados para ese hito. |
-| Tras pasar ambas etapas | Desplegar y verificar la instancia por la ABI real. Ejecutar el escenario principal y el de liquidación con sobrante, cada uno en Anvil limpio, y repetir ambos desde cero. | Cada escenario reproduce sus partidas esperadas en las dos ejecuciones. Conservar la configuración, el orden de transacciones y el estado final de cada instancia. |
-| Al preparar una versión estable | Asociar al commit validado el informe de pruebas, las mediciones y el manifiesto del despliegue de referencia. | La versión se identifica según las [convenciones del proyecto](../AGENTS/github.md). La publicación de la release es una operación explícita. |
+| Pull request, push a `main` o ejecución manual | Comprueba formato, compilación y tamaños. Verifica el descubrimiento de las siete suites, ejecuta Forge con semilla fija y obtiene un informe de gas de las pruebas de rendimiento. | Inventario de pruebas y gas asociados al commit. |
+| Tras superar la validación en `main` o en una ejecución manual | Ejecuta el mismo comando de aceptación local en un runner aislado. Un fallo en despliegue, recibos o conciliación hace fallar el trabajo. | Cuatro informes de aceptación si la ejecución termina. Si una ejecución falla, se conservan los informes alcanzados y el diagnóstico disponible. |
 
-**Permisos de CI.** Partir de permisos globales vacíos y conceder solo lectura del contenido a compilación, pruebas y despliegue efímero. Ejecutar el código de pull requests con credenciales de checkout no persistentes y sin secretos de publicación. Fijar acciones y dependencias a revisiones identificables y registrar las versiones efectivas de Foundry y Solidity. Si se automatiza la publicación de una release, aislarla en un trabajo con permiso de escritura de contenido, limitado a una versión autorizada cuyo commit haya superado la validación completa.
-
-**Evidencia y repetición.** El manifiesto recogerá commit, versiones, identificador de cadena, direcciones de contratos y roles, configuración efectiva y bloques de las operaciones. Los artefactos incluirán recibos, conciliación final y medidas de gas. Los importes y las transiciones se comparan entre ejecuciones, incluso si cambian hashes o direcciones. Las cuentas de prueba se crean para la instancia efímera. Las claves quedan fuera del repositorio, los informes y los logs. Si falla un despliegue o una conciliación, se conserva el diagnóstico y se repite desde una instancia limpia.
+La publicación de una versión estable es un paso explícito conforme a las [convenciones del proyecto](../AGENTS/github.md).

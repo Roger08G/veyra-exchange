@@ -1,12 +1,12 @@
 # Arquitectura de integración del MVP
 
-El MVP tendrá tres contratos desplegados en Anvil: `MockUSD`, `MockETH` y `Veyra`. La dirección de `Veyra` será la que recibe las autorizaciones ERC-20, custodia ambos activos y ejecuta las operaciones. Los módulos económicos serán internos. Así, una apertura podrá mover caja, disponible, garantía, deuda e ingresos y revertirlos juntos si falla una comprobación. Las reglas y las unidades de cada partida se mantienen en las [ocho fichas económicas](./economic.md).
+El MVP despliega tres contratos en Anvil. `MockUSD` y `MockETH` emiten los activos de prueba. `Veyra` recibe las autorizaciones ERC-20, custodia ambos activos y ejecuta las operaciones. Sus módulos internos permiten que una apertura mueva caja, disponible, garantía, deuda e ingresos en una sola transacción. Las reglas y las unidades de cada partida se mantienen en las [ocho fichas económicas](./economic.md).
 
-Esta es la estructura para la implementación. El código de partida en `src/`, `test/` y `script/` sigue siendo el ejemplo `Counter` de Foundry.
+La [interfaz pública](../src/interface/IVeyra.sol) reúne los dominios del mercado. El [contrato de custodia](../src/core/Veyra.sol) compone las operaciones. Las bibliotecas `Accounts`, `Loans`, `Pool` y `MarketPrice` gestionan el estado que se describe a continuación.
 
 ## Directorios
 
-| Ruta | Contenido previsto |
+| Ruta | Contenido |
 | --- | --- |
 | `src/core/` | Contrato de entrada `Veyra`, inicialización, configuración de la instancia y composición de operaciones. |
 | `src/interface/` | Interfaces externas por dominio, sus eventos y errores públicos. `IVeyra` reúne las interfaces del protocolo en una ABI para integradores. |
@@ -26,7 +26,7 @@ Las interfaces declaran lo que pueden llamar usuarios, scripts e integradores. L
 
 Al componer una operación, `core/` pasa a cada módulo solo los datos que necesita. Por ejemplo, para reembolsar participaciones obtiene la deuda proyectada de préstamos y se la pasa al fondo para valorar el reembolso. Préstamos y fondo pueden así compartir la misma valoración sin importarse mutuamente. Las bibliotecas de cálculo operan sobre argumentos explícitos, lo que permite reutilizarlas y probar sus redondeos por separado.
 
-| Interfaz propuesta | Entradas y consultas | Módulo responsable |
+| Interfaz | Entradas y consultas | Módulo responsable |
 | --- | --- | --- |
 | `IAccounts` | Depositar, retirar y consultar disponible individual y total por token. | Cuentas (EC-01) actualiza ambas cifras en la misma operación, también cuando otro dominio necesita cargar o abonar un disponible. |
 | `IPayments` | Pagar en MockUSD desde la cuenta del emisor. | Pagos (EC-02) calcula el reparto con el plan vigente y coordina cuentas e ingresos. El evento identifica el pago. |
@@ -38,6 +38,8 @@ Al componer una operación, `core/` pasa a cada módulo solo los datos que neces
 | `IMarketConfig` | Leer activos, permisos, parámetros, precio y fecha. Publicar precio y cambiar la habilitación de los activos configurados. | Configuración conserva las direcciones, parámetros fijos y habilitación. El módulo de precio registra cada publicación con el tiempo del bloque. |
 
 El adaptador de transferencias en `security/` usa la interfaz ERC-20 y comprueba la variación real de balances. Solo el depósito y las retiradas de usuario o tesorería lo necesitan. Las operaciones internas liquidan sobre saldos ya custodiados. El código de `src/` no depende de scripts, pruebas ni funciones de emisión de los mocks. Las interfaces públicas tampoco exponen primitivas internas como acreditar un saldo, declarar una pérdida o registrar una comisión. [Permisos por actor](./security.md#permisos-por-actor)
+
+Para integrarse por ABI, `deposit(token, amount)` requiere una autorización ERC-20 previa a la custodia. `supply(amount)`, `pay(recipient, gross)` y `repay(id, amount)` utilizan el disponible interno en MockUSD. `redeem(shares)` abona MockUSD al disponible del proveedor. `repayAll(id)` calcula el importe de cierre al ejecutar. Las cantidades de MockUSD y participaciones usan 6 decimales, y las de MockETH usan 18. El campo `status` de `loan(id)` vale 1 para un préstamo activo, 2 para uno devuelto y 3 para uno liquidado. La consulta de un ID inexistente revierte.
 
 ### Ejemplo de integración de una apertura
 

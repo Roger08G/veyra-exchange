@@ -1,6 +1,6 @@
 # Pruebas y criterios de aceptación
 
-La suite actual de Foundry cubre el contrato de ejemplo `Counter`. Los siguientes criterios de aceptación corresponden al protocolo que se implementará. Cada prueba identificará su cadena, su invariante y los casos `CL` correspondientes en el [índice económico](./economic.md).
+Las suites de Foundry ejercitan la custodia, los módulos y los dos tokens de prueba. El [recorrido de integración](../test/integration/MarketLifecycle.t.sol) y el [ejecutor de Anvil](../script/verify/acceptance.py) verifican los escenarios siguientes. Las fichas del [índice económico](./economic.md) definen los resultados con los que se compara cada operación.
 
 **Pruebas por operación.** Usar unidades mínimas y comparar el estado anterior y posterior. Incluir ambos tokens, saldo exacto y una unidad menos, comisión redondeada a cero, instante exacto de caducidad, precio justo en el umbral y precio caducado. Ante un fallo deben conservarse custodia, saldos, deuda, participaciones e ingresos del intento. Los casos de funciones excluidas verifican la ausencia de movimientos por esa vía.
 
@@ -50,8 +50,26 @@ Registrar para cada caso la referencia `EC / INV / CL`, el nombre de la prueba y
 
 ## Presupuestos de rendimiento
 
-La primera implementación medirá depósito, retirada, pago, apertura, devolución, liquidación, aportación y reembolso. Separar el coste de preparación de la transacción medida. Fijar versiones de Forge y Solidity, configuración del optimizador, versión de EVM, estado inicial y condiciones de acceso al almacenamiento. Guardar el gas por operación, el tamaño desplegado de `Veyra` y el commit que produjo cada medida.
+La [suite de rendimiento](../test/performance/MarketGas.t.sol) mide el gas de una llamada con almacenamiento frío después de preparar la instancia. Excluye el coste intrínseco de la transacción y los reembolsos de gas. Los recibos de Anvil guardan por separado el gas efectivamente usado por la transacción. La referencia usa Forge 1.8.3, Solidity 0.8.35, EVM Cancun y optimizador con 200 ejecuciones.
 
-La valoración exacta del fondo es el punto sensible. Probar como escalones iniciales 0, 1, 10 y 100 préstamos activos para aportación, reembolso y consulta de patrimonio. Repetir con igual número de activos y más préstamos cerrados. Los pagos y las operaciones sobre una posición identificada deben poder ejecutarse sin recorrer el historial. Toda optimización de la valoración debe producir el mismo patrimonio que la suma de caja y deuda entera proyectada de cada préstamo al mismo instante. [Regla de EC-04](./chains/ec-04-aportacion-y-retirada.md)
+| Préstamos activos | Préstamos cerrados | Consultar patrimonio | Aportar | Reembolsar |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 0 | 4.650 | 59.908 | 59.822 |
+| 1 | 0 | 19.207 | 74.465 | 74.379 |
+| 10 | 0 | 150.220 | 205.478 | 205.392 |
+| 10 | 100 | 150.220 | 205.478 | 205.392 |
+| 100 | 0 | 1.460.350 | 1.515.608 | 1.515.522 |
 
-Con la primera medición reproducible se fijarán el presupuesto de gas de cada operación y el volumen de referencia de la simulación, con margen frente al límite de gas de su bloque. Una ruta que exceda el presupuesto o no quepa en ese bloque al volumen declarado impide aceptar la entrega. El informe debe mostrar el escenario afectado y la variación frente a la referencia. Los escalones anteriores son cargas de prueba propuestas, no capacidad demostrada.
+Con N préstamos activos, el presupuesto comprobado es 6.000 + 17.000 × N para consultar el patrimonio y 72.000 + 17.000 × N para aportar o reembolsar. Se exige además que el runtime de Veyra quepa en 24.576 bytes. CI hace fallar la prueba al superar el presupuesto.
+
+| Operación | Gas medido | Presupuesto |
+| --- | ---: | ---: |
+| Depósito | 67.409 | 80.000 |
+| Retirada | 73.962 | 90.000 |
+| Pago | 74.431 | 90.000 |
+| Apertura | 329.404 | 390.000 |
+| Devolución parcial | 70.768 | 85.000 |
+| Devolución total | 129.242 | 155.000 |
+| Liquidación | 138.826 | 170.000 |
+
+El volumen comprobado llega a 100 posiciones activas. Valorar el patrimonio recorre esas posiciones para redondear el interés de cada préstamo antes de sumarlo. Los cierres retiran su ID del índice de activos. El mercado carece de un máximo global de préstamos, por lo que con suficiente volumen el coste de una aportación o reembolso puede superar el gas del bloque. [Regla de valoración](./chains/ec-04-aportacion-y-retirada.md)

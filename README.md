@@ -17,7 +17,7 @@ Veyra es una plataforma financiera basada en contratos inteligentes EVM que inte
 - **Mercado:** un único mercado de préstamos y un único fondo de liquidez.
 - **Cuentas:** depósitos y retiradas, manteniendo los saldos disponibles para pagos separados del capital aportado al fondo de liquidez.
 - **Pagos:** transferencias individuales entre cuentas, con comisiones según el plan vigente del emisor y registro de cada operación.
-- **Planes:** un plan básico y uno de pago. El plan de pago tendrá duración fija, caducidad y renovación manual.
+- **Planes:** un plan básico y uno de pago con duración fija, caducidad y renovación manual.
 - **Liquidez:** aportaciones al fondo a cambio de participaciones y retiradas según el valor de estas y la liquidez disponible.
 - **Préstamos:** un máximo de un préstamo activo por cuenta, respaldado por una garantía bloqueada y limitado por su valor. La tasa de interés y la comisión de apertura quedarán fijadas al abrirlo, según el plan vigente.
 - **Intereses y devolución:** interés simple sobre el principal pendiente, devoluciones parciales o totales y liberación de la garantía restante al saldar la deuda.
@@ -26,7 +26,7 @@ Veyra es una plataforma financiera basada en contratos inteligentes EVM que inte
 
 ## Economía
 
-El primer hito es un despliegue reproducible en Anvil. En la misma instancia deben cuadrar un pago interno, una suscripción, una aportación y su reembolso, un préstamo devuelto, otro liquidado con pérdida y las retiradas externas de usuarios y tesorería. Las ocho fichas especifican las reglas y el plan de pruebas fija los resultados esperados.
+La aceptación local recorre un pago, una suscripción, dos aportaciones, un préstamo devuelto, otro liquidado con pérdida y los reembolsos y retiradas hasta vaciar la custodia. Una segunda instancia comprueba la devolución del sobrante de garantía al prestatario.
 
 > [Cadenas económicas y configuración de referencia](./docs/economic.md) · [Tokens](./docs/tokens.md)
 
@@ -35,6 +35,15 @@ El primer hito es un despliegue reproducible en Anvil. En la misma instancia deb
 La [arquitectura de integración del MVP](./docs/arquitectura.md) define la custodia común, las interfaces, el estado que gestiona cada módulo y el orden de implementación.
 
 ## Despliegue
+
+Con Foundry 1.8.3, Python 3.10 o superior y `lib/forge-std` inicializado, ejecuta desde la raíz:
+
+```sh
+forge test -vvv
+python script/verify/acceptance.py
+```
+
+El segundo comando despliega el mercado y los dos tokens en cuatro instancias efímeras de Anvil. Guarda las direcciones, recibos y conciliaciones en `cache/acceptance/`. Para dejar una instancia en marcha y operar con ella, sigue el procedimiento de despliegue local.
 
 > [Despliegue local en Anvil](./docs/deploy.md)
 

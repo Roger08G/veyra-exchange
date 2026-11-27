@@ -7,7 +7,7 @@ Estas instrucciones se aplican a todo el repositorio. Trabaja en español, de fo
 - Lee el [alcance del MVP](./README.md) y las [convenciones de GitHub](./AGENTS/github.md). Esta última guía define los encabezados de commit, las ramas por versión y la relación entre release y tag. Aplícala cuando la tarea incluya esas operaciones. Si el usuario pide trabajar sin Git, respeta ese límite también al verificar los cambios.
 - Busca la operación en la [especificación económica](./docs/economic.md). Allí están los parámetros de referencia y los enlaces a las ocho fichas EC-01 a EC-08. Lee la ficha afectada y las de las partidas que también cambian. Por ejemplo, una apertura usa las condiciones de EC-03, la caja de EC-04, la garantía y la deuda de EC-05, y el ingreso de EC-08.
 - Para implementar una operación, localiza su interfaz, el módulo que escribe cada partida y el hito correspondiente en la [arquitectura de integración](./docs/arquitectura.md). Usa la matriz de permisos y la suite de pruebas que corresponda.
-- Inspecciona los contratos en `src/`, las pruebas en `test/` y los scripts en `script/` para saber qué existe. `Counter` es el ejemplo inicial de Foundry. Para afirmar que una función de Veyra está implementada, identifica su entrada real y la prueba que la ejercita.
+- Localiza la operación en la [interfaz pública](./src/interface/IVeyra.sol) y en la [custodia](./src/core/Veyra.sol). Sigue la llamada hasta su módulo y la prueba que la ejercita. El [ejecutor de aceptación](./script/verify/acceptance.py) verifica los recorridos completos sobre Anvil.
 
 ## Al implementar o documentar una operación
 
