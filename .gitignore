@@ -1,5 +1,6 @@
 # Compiler files
 cache/
+__pycache__/
 out/
 foundry.lock
 
